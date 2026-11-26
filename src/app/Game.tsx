@@ -448,10 +448,10 @@ function Help() {
         <li><b>Weź 3 karty</b> z talii lub Giełdy.</li>
         <li><b>Uruchom fabryki:</b> używasz kart z Imperium (ruble, PP, mniej Nędzy, tory). Potem dostajesz Nędzę: stosy + karty w ręce − Twoje dzielnice.</li>
       </ul>
-      <p><b>Nędza</b> odejmuje PP na koniec. Gdy przekroczy 12, wybucha <b>Strajk</b>: do końca Twojej następnej tury karty Przemysłu nie pracują (poza tymi, które zmniejszają Nędzę).</p>
+      <p><b>Nędza</b> odejmuje PP na koniec. Gdy dojdzie do 15, wybucha <b>Strajk</b>: do końca Twojej następnej tury karty Przemysłu nie pracują (poza tymi, które zmniejszają Nędzę).</p>
       <p><b>Weksle:</b> gdy brakuje rubli, bank daje 10 rb. Spłata 15 rb na początku tury, niespłacony to −7 PP.</p>
       <p><b>Tory</b> (Dworzec, Tramwaj, Kolej) łączą dzielnice od Śródmieścia: +2 PP za Twoją dzielnicę z torem. Miasteczka (Zgierz, Pabianice, Aleksandrów, Stryków) kupisz dopiero, gdy tor dojdzie do sąsiedniej dzielnicy.</p>
-      <p><b>Koniec:</b> gdy talia się skończy, każdy ma jeszcze jedną turę. Wygrywa najwięcej PP.</p>
+      <p><b>Koniec:</b> gdy talia się skończy, każdy ma jeszcze jedną turę. Liczą się PP z kart, dzielnic, torów i żetonów, plus 1 PP za każde 5 rb. Wygrywa najwięcej PP.</p>
     </details>
   );
 }

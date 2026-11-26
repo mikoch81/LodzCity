@@ -66,8 +66,9 @@ const fail = (msg: string): never => {
 };
 
 export const HAND_LIMIT = 9;
-export const STRIKE_AT = 12;
+export const STRIKE_AT = 15;
 export const LOAN = 10;
+export const MONEY_PER_PP = 5;
 
 export const def = (s: State, uid: number): CardDef => CARD_BY_ID[s.cards[uid]];
 
@@ -388,7 +389,7 @@ export function score(s: State): Score[] {
       districts: owned.reduce((n, d) => n + d.pp, 0),
       tracks: owned.filter((d) => s.tracks.includes(d.id)).length * 2,
       tokens: p.pp,
-      money: Math.floor(p.money / 3),
+      money: Math.floor(p.money / MONEY_PER_PP),
       loans: -7 * p.loans,
       poverty: pov[pi] - least,
       povertyPenalty: -povertyPenalty(pov[pi] - least),

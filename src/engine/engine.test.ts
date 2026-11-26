@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { botMove } from "./ai";
 import { CARDS } from "./data";
-import { apply, def, GameError, newGame, povertyPenalty, type State } from "./engine";
+import { apply, def, GameError, newGame, povertyPenalty, score, type State } from "./engine";
 
 const two = () => newGame([{ name: "A" }, { name: "B" }], 42);
 
@@ -74,10 +74,10 @@ describe("uruchamianie fabryk", () => {
     expect(n.players[0].empire[0].flipped).toBe(true);
   });
 
-  it("Strajk przy 12+ Nędzy blokuje Przemysł przy kolejnym uruchomieniu", () => {
+  it("Strajk przy 15+ Nędzy blokuje Przemysł przy kolejnym uruchomieniu", () => {
     const s = setup(["geyer", "bezrobotni", "bezrobotni"], (s) => {
       s.players[0].empire = [{ cards: [s.players[0].hand.shift()!], flipped: false, placedTurn: 0 }];
-      s.players[0].poverty = 11;
+      s.players[0].poverty = 14;
     });
     const n = apply(s, { t: "run", acts: [{ stack: 0, pay: [s.players[0].hand[0]] }] });
     expect(n.players[0].strike).toBe(true);
@@ -92,7 +92,7 @@ describe("Strajk", () => {
   const struck = () => {
     const s = setup(["geyer", "bezrobotni", "bezrobotni"], (s) => {
       s.players[0].empire = [{ cards: [s.players[0].hand.shift()!], flipped: false, placedTurn: 0 }];
-      s.players[0].poverty = 11;
+      s.players[0].poverty = 14;
     });
     return apply(s, { t: "run", acts: [{ stack: 0, pay: [s.players[0].hand[0]] }] });
   };
@@ -164,6 +164,12 @@ describe("grunty i tory", () => {
 });
 
 describe("punktacja", () => {
+  it("1 PP za każde 5 rubli", () => {
+    const s = two();
+    s.players[0].money = 14;
+    expect(score(s)[0].money).toBe(2);
+  });
+
   it("tabela kar za Nędzę", () => {
     expect([0, 1, 2, 3, 4, 6].map(povertyPenalty)).toEqual([0, 1, 1, 2, 4, 8]);
   });
