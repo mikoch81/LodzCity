@@ -2,7 +2,7 @@
 // shortcut: one-ply greedy search with level-based noise, upgrade to Monte Carlo rollouts if bots feel weak in playtests.
 import { DISTRICTS, type CardDef } from "./data";
 import {
-  apply, canBuy, canTrack, def, GameError, HAND_LIMIT, landPrice, povertyPenalty, repayCost,
+  apply, canBuy, canTrack, def, GameError, hasPerm, strikeBlocks, HAND_LIMIT, landPrice, povertyPenalty, repayCost,
   type Action, type Player, type State,
 } from "./engine";
 
@@ -36,7 +36,7 @@ function runAction(s: State, p: Player): Action | null {
   const hand = [...p.hand];
   const acts: { stack: number; pay?: number[]; tracks?: string[] }[] = [];
   const order = p.empire.map((st, i) => ({ st, i, d: def(s, st.cards[st.cards.length - 1]) }))
-    .filter((x) => x.d.run && !x.st.flipped && !(p.strike && x.d.color === "przemysl"))
+    .filter((x) => x.d.run && !x.st.flipped && !strikeBlocks(p, x.d, hasPerm(s, p, "noStrike")))
     .sort((a, b) => cardValue(b.d) - cardValue(a.d));
   let money = p.money;
   const placed: string[] = [];

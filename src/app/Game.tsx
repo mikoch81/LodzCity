@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { botMove, cheapest } from "@/engine/ai";
 import { ADJ, DISTRICTS, type CardDef, type Color } from "@/engine/data";
 import {
-  apply, canBuy, canTrack, def, GameError, HAND_LIMIT, landPrice, newGame, ranking, repayCost, score,
+  apply, canBuy, canTrack, def, GameError, HAND_LIMIT, hasPerm, landPrice, LOAN, newGame, ranking, repayCost, score, strikeBlocks,
   type Action, type BotLevel, type State,
 } from "@/engine/engine";
 import css from "./Game.module.css";
@@ -142,7 +142,7 @@ export default function Game() {
     if (mode !== "run") return;
     const st = me.empire[i];
     const d = def(s, st.cards[st.cards.length - 1]);
-    if (!d.run || st.flipped) return;
+    if (!d.run || st.flipped || strikeBlocks(me, d, hasPerm(s, me, "noStrike"))) return;
     setActs((a) => {
       const n = { ...a };
       if (i in n) delete n[i];
@@ -192,7 +192,7 @@ export default function Game() {
       <header className={css.header}>
         <h1>Fabrykant</h1>
         <span>
-          Tura {s.turnNo} · talia: {s.deck.length} kart
+          Runda {Math.ceil(s.turnNo / s.players.length)} · talia: {s.deck.length} kart
           {s.finalTurns !== null && " · ostatnia kolejka!"}
         </span>
       </header>
@@ -318,8 +318,18 @@ export default function Game() {
                     ? "Kliknij dzielnice na planie, aby położyć tory."
                     : "Kliknij karty w Imperium, które chcesz uruchomić. Karty do zapłaty dobiorę automatycznie.")}
                   {mode === "take3" && "Wybierz do 3 kart z Giełdy lub talii."}
-                  {mode === "buy" && "Kliknij podświetloną dzielnicę na planie. Najedź na nią, by zobaczyć cenę, karty i PP."}
+                  {mode === "buy" && `Kliknij podświetloną dzielnicę na planie. Najedź na nią, by zobaczyć cenę, karty i PP. Masz ${me.money} rb; jeśli grunt jest droższy, bank wypisze weksel (${LOAN} rb, spłata ${repayCost(s, me)} rb, niespłacony −7 PP).`}
                 </p>
+                {mode === "invest" && plays.length > 0 && <LoanWarning cost={plays.reduce((n, p) => n + def(s, p.card).cost, 0)} money={me.money} />}
+                {mode === "run" && Object.keys(acts).length > 0 && (
+                  <LoanWarning
+                    cost={Object.keys(acts).reduce((n, k) => {
+                      const pay = def(s, me.empire[Number(k)].cards.at(-1)!).run?.pay;
+                      return n + (pay?.kind === "money" ? pay.n : 0);
+                    }, 0)}
+                    money={me.money}
+                  />
+                )}
                 {mode === "invest" && plays.length > 0 && (
                   <ul className={css.pending}>
                     {plays.map((p, i) => (
@@ -351,11 +361,13 @@ export default function Game() {
           {me.empire.length === 0 && <p className={css.muted}>Jeszcze nic nie zbudowano.</p>}
           {me.empire.map((st, i) => {
             const d = def(s, st.cards.at(-1)!);
-            const clickable = myTurn && ((mode === "run" && d.run && !st.flipped) || (mode === "invest" && plays.length > 0 && st.placedTurn !== s.turnNo));
+            const blocked = strikeBlocks(me, d, hasPerm(s, me, "noStrike"));
+            const clickable = myTurn && ((mode === "run" && d.run && !st.flipped && !blocked) || (mode === "invest" && plays.length > 0 && st.placedTurn !== s.turnNo));
             return (
               <div key={i} className={css.stack}>
                 <Card d={d} dim={st.flipped} selected={i in acts || plays.at(-1)?.onto === i} onClick={clickable ? () => clickStack(i) : undefined} />
                 {st.cards.length > 1 && <span className={css.muted}>stos: {st.cards.length}</span>}
+                {blocked && <span className={css.error}>strajk</span>}
               </div>
             );
           })}
@@ -436,10 +448,21 @@ function Help() {
         <li><b>Weź 3 karty</b> z talii lub Giełdy.</li>
         <li><b>Uruchom fabryki:</b> używasz kart z Imperium (ruble, PP, mniej Nędzy, tory). Potem dostajesz Nędzę: stosy + karty w ręce − Twoje dzielnice.</li>
       </ul>
-      <p><b>Nędza</b> odejmuje PP na koniec. Przy 12+ wybucha <b>Strajk</b>: Twój Przemysł nie pracuje przy następnym uruchomieniu.</p>
+      <p><b>Nędza</b> odejmuje PP na koniec. Gdy przekroczy 12, wybucha <b>Strajk</b>: do końca Twojej następnej tury karty Przemysłu nie pracują (poza tymi, które zmniejszają Nędzę).</p>
       <p><b>Weksle:</b> gdy brakuje rubli, bank daje 10 rb. Spłata 15 rb na początku tury, niespłacony to −7 PP.</p>
       <p><b>Tory</b> (Dworzec, Tramwaj, Kolej) łączą dzielnice od Śródmieścia: +2 PP za Twoją dzielnicę z torem. Miasteczka (Zgierz, Pabianice, Aleksandrów, Stryków) kupisz dopiero, gdy tor dojdzie do sąsiedniej dzielnicy.</p>
       <p><b>Koniec:</b> gdy talia się skończy, każdy ma jeszcze jedną turę. Wygrywa najwięcej PP.</p>
     </details>
+  );
+}
+
+function LoanWarning({ cost, money }: { cost: number; money: number }) {
+  if (!cost) return null;
+  const loans = Math.max(0, Math.ceil((cost - money) / LOAN));
+  return (
+    <p className={loans ? css.error : css.muted}>
+      Koszt: {cost} rb (masz {money} rb).
+      {loans > 0 && ` Zabraknie ${cost - money} rb: bank wypisze ${loans} ${loans === 1 ? "weksel" : "weksle"}, każdy niespłacony to −7 PP.`}
+    </p>
   );
 }
