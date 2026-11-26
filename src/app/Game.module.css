@@ -63,3 +63,8 @@
 .setup h1 { font-size: 3rem; }
 .setup label { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .setup input, .setup select { padding: 6px; border-radius: 6px; border: 1px solid #5a4a3d; background: #2a211c; color: var(--paper); }
+
+.help { background: #2a211c; border: 1px solid #5a4a3d; border-radius: 10px; padding: 10px 12px; font-size: 0.85rem; line-height: 1.45; }
+.help summary { cursor: pointer; font-family: var(--font-display); font-size: 1.15rem; color: var(--gold); }
+.help p, .help ul { margin-top: 8px; }
+.help ul { padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
