@@ -1,0 +1,65 @@
+.game { max-width: 1280px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 18px; }
+.header { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+.header h1 { font-size: 2.4rem; }
+.muted { color: #a8998a; font-size: 0.85rem; }
+
+.players { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+.player { border: 1px solid; border-radius: 8px; padding: 8px 10px; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.85rem; opacity: 0.75; }
+.player strong { width: 100%; font-family: var(--font-display); font-size: 1.15rem; }
+.active { opacity: 1; box-shadow: 0 0 0 2px currentColor inset; background: #2a211c; }
+
+.middle { display: grid; grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr); gap: 16px; }
+@media (max-width: 860px) { .middle { grid-template-columns: 1fr; } }
+
+.board { width: 100%; background: radial-gradient(circle at 50% 50%, #4b3a2a, #2a201a); border-radius: 12px; border: 1px solid var(--gold); }
+.edge { stroke: #7a6550; stroke-width: 0.35; stroke-dasharray: 1 0.8; }
+.trackLine { stroke: var(--gold); stroke-width: 0.9; }
+.district circle { stroke: #1d1714; stroke-width: 0.5; transition: transform 0.2s; }
+.clickable { cursor: pointer; }
+.clickable:hover circle { stroke: #fff; }
+.ring { stroke: var(--paper) !important; stroke-width: 0.7 !important; stroke-dasharray: 1.2 0.8; }
+.chosen { stroke: #fff !important; stroke-width: 1.1 !important; }
+.trackDot { fill: var(--gold); stroke: #1d1714; stroke-width: 0.3; }
+.label { font-size: 2.3px; fill: var(--paper); text-anchor: middle; pointer-events: none; }
+
+.side { display: flex; flex-direction: column; gap: 10px; }
+.market { display: grid; gap: 6px; }
+.slot { border: 1px dashed #5a4a3d; border-radius: 6px; min-height: 78px; }
+.deck { padding: 10px; border-radius: 8px; border: 1px solid var(--gold); background: #3a2c22; color: var(--paper); }
+
+.panel { background: #2a211c; border: 1px solid #5a4a3d; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.panel button, .setup button { padding: 8px 14px; border-radius: 6px; border: 1px solid var(--gold); background: var(--przemysl); color: var(--paper); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.pending { padding-left: 18px; font-size: 0.85rem; }
+.error { color: #ff9b8a; font-size: 0.9rem; }
+.scores { border-collapse: collapse; font-size: 0.8rem; width: 100%; }
+.scores th, .scores td { border-bottom: 1px solid #5a4a3d; padding: 4px; text-align: right; }
+.scores th:first-child, .scores td:first-child { text-align: left; }
+
+.row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.stack { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.others { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+
+.card {
+  width: 132px; min-height: 180px; display: flex; flex-direction: column; gap: 6px; text-align: left;
+  background: var(--paper); color: var(--ink); border: 3px solid var(--c); border-radius: 8px; padding: 6px;
+  box-shadow: 0 2px 6px #0008; transition: transform 0.15s, box-shadow 0.15s;
+}
+.card:not(:disabled):hover { transform: translateY(-4px); box-shadow: 0 8px 14px #000a; }
+.card:disabled { opacity: 1; cursor: default; }
+.small { width: auto; min-height: 78px; font-size: 0.75rem; }
+.selected { outline: 3px solid var(--gold); transform: translateY(-6px); }
+.dim { filter: grayscale(0.8) brightness(0.75); }
+.cardTop { display: flex; justify-content: space-between; font-size: 0.7rem; font-weight: 600; color: var(--c); }
+.cardName { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; line-height: 1.1; }
+.small .cardName { font-size: 0.85rem; }
+.cardText { font-size: 0.72rem; flex: 1; }
+.cardFoot { display: flex; justify-content: space-between; font-size: 0.65rem; background: var(--c); color: var(--paper); margin: 0 -6px -6px; padding: 3px 6px; border-radius: 0 0 4px 4px; }
+.pp { font-weight: 700; color: var(--gold); }
+
+.log { padding-left: 18px; font-size: 0.85rem; color: #cbbba8; display: flex; flex-direction: column; gap: 2px; }
+
+.setup { max-width: 420px; margin: 10vh auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.setup h1 { font-size: 3rem; }
+.setup label { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.setup input, .setup select { padding: 6px; border-radius: 6px; border: 1px solid #5a4a3d; background: #2a211c; color: var(--paper); }

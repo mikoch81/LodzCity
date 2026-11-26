@@ -1,0 +1,28 @@
+:root {
+  --paper: #f2e8d5;
+  --ink: #2b2320;
+  --gold: #b8913a;
+  --bg: #1d1714;
+  --przemysl: #9b3b2a;
+  --wladza: #24365c;
+  --kultura: #2f5d50;
+  --nedza: #5b5a57;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--paper);
+  font-family: var(--font-body), system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+h1, h2, h3 { font-family: var(--font-display), Georgia, serif; color: var(--gold); }
+button { font: inherit; cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: 0.45; }
+button:focus-visible, [role="button"]:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
