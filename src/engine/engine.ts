@@ -15,6 +15,7 @@ export type Player = {
   loans: number;
   pp: number;
   strike: boolean;
+  struckOn: number; // turnNo when the strike started; it ends with the player's next own turn
 };
 
 export type Score = {
@@ -90,7 +91,7 @@ export function newGame(players: { name: string; bot?: BotLevel }[], seed = Date
   if (players.length < 2 || players.length > 4) fail("Gra jest dla 2–4 graczy.");
   const s: State = {
     cards: {},
-    players: players.map((p) => ({ ...p, money: 5, poverty: 5, hand: [], empire: [], loans: 0, pp: 0, strike: false })),
+    players: players.map((p) => ({ ...p, money: 5, poverty: 5, hand: [], empire: [], loans: 0, pp: 0, strike: false, struckOn: 0 })),
     current: 0,
     phase: "draw",
     deck: [],
@@ -120,6 +121,10 @@ export function newGame(players: { name: string; bot?: BotLevel }[], seed = Date
 
 export const hasPerm = (s: State, p: Player, perm: Permanent) =>
   p.empire.some((st) => def(s, st.cards[st.cards.length - 1]).permanent === perm);
+
+// Industry stops during a strike, except cards that reduce Nędza (they are the way out).
+export const strikeBlocks = (p: Player, d: CardDef, noStrike: boolean) =>
+  p.strike && d.color === "przemysl" && !noStrike && !((d.run?.effect.poverty ?? 0) < 0);
 
 export const ownedCount = (s: State, pi: number) => Object.values(s.owner).filter((o) => o === pi).length;
 
@@ -185,10 +190,13 @@ export function canBuy(s: State, pi: number, district: string): string | null {
   if (!d) return "Nie ma takiej dzielnicy.";
   if (s.owner[district] != null) return "Ta dzielnica jest już zajęta.";
   const nearOccupied = ADJ[district].some((n) => s.owner[n] != null);
-  if (!d.start && !nearOccupied) return "Dzielnica musi sąsiadować z zajętą albo być dzielnicą startową.";
+  // first land: a free starting district; when all three are taken (4 players), any land next to an occupied one
+  const freeStart = DISTRICTS.some((x) => x.start && s.owner[x.id] == null);
+  if (!ownedCount(s, pi) && freeStart) {
+    if (!d.start) return "Pierwszy grunt kupujesz na Starym Mieście, Nowym Mieście albo w Łódce.";
+  } else if (!nearOccupied) return "Dzielnica musi sąsiadować z zajętą.";
   if (d.town && !ADJ[district].some((n) => s.tracks.includes(n)))
     return "Do miasteczka musi najpierw dojść tor z sąsiedniej dzielnicy.";
-  void pi;
   return null;
 }
 
@@ -244,7 +252,7 @@ export function apply(state: State, a: Action): State {
         const d = def(s, play.card);
         removeFromHand(p, play.card);
         if (d.event) {
-          for (const q of s.players) if (q.poverty >= 8) q.strike = true;
+          for (const q of s.players) if (q.poverty >= 8) Object.assign(q, { strike: true, struckOn: s.turnNo });
           s.log.push(`${p.name} zagrywa „${d.name}”: strajkują rody z 8+ Nędzy.`);
           continue;
         }
@@ -298,7 +306,7 @@ export function apply(state: State, a: Action): State {
         const d = def(s, st.cards[st.cards.length - 1]);
         if (!d.run) fail(`„${d.name}” nie ma uruchomienia.`);
         if (st.flipped) fail(`„${d.name}” jest już zużyta.`);
-        if (p.strike && d.color === "przemysl" && !noStrike) fail(`Strajk: „${d.name}” nie pracuje w tej turze.`);
+        if (strikeBlocks(p, d, noStrike)) fail(`Strajk: „${d.name}” nie pracuje do końca Twojej tury.`);
         const { pay: cost, effect, flips } = d.run!;
         if (cost.kind === "money") pay(s, p, cost.n);
         if (cost.kind === "card" || cost.kind === "culture") {
@@ -324,12 +332,14 @@ export function apply(state: State, a: Action): State {
         }
         if (flips) st.flipped = true;
       }
+      const before = p.poverty;
       const gained = p.empire.length + p.hand.length - ownedCount(s, pi);
       p.poverty = Math.max(0, p.poverty + gained);
       s.log.push(`${p.name} uruchamia fabryki, Nędza ${gained >= 0 ? "+" : ""}${gained}.`);
-      p.strike = false;
-      if (p.poverty >= STRIKE_AT) {
+      // a strike starts only when Nędza crosses the threshold, so a poor family is not locked out forever
+      if (before < STRIKE_AT && p.poverty >= STRIKE_AT && !p.strike) {
         p.strike = true;
+        p.struckOn = s.turnNo;
         s.log.push(`Strajk u ${p.name}: fabryki Przemysłu staną przy następnym uruchomieniu.`);
       }
       break;
@@ -346,6 +356,8 @@ export function apply(state: State, a: Action): State {
 }
 
 function endTurn(s: State): State {
+  const p = s.players[s.current];
+  if (p.strike && p.struckOn < s.turnNo) p.strike = false;
   if (s.finalTurns !== null) {
     if (s.finalTurns === 0) return finish(s);
     s.finalTurns--;
