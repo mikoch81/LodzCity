@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { botMove, cheapest } from "@/engine/ai";
 import { ADJ, DISTRICTS, type CardDef, type Color } from "@/engine/data";
 import {
-  apply, canBuy, canTrack, def, GameError, HAND_LIMIT, landPrice, newGame, ranking, repayCost,
+  apply, canBuy, canTrack, def, GameError, HAND_LIMIT, landPrice, newGame, ranking, repayCost, score,
   type Action, type BotLevel, type State,
 } from "@/engine/engine";
 import css from "./Game.module.css";
@@ -59,7 +59,7 @@ function Card({ d, selected, dim, onClick, small }: { d: CardDef; selected?: boo
   );
 }
 
-type Mode = "none" | "invest" | "take3" | "run";
+type Mode = "none" | "invest" | "take3" | "run" | "buy";
 
 export default function Game() {
   const [s, setS] = useState<State | null>(null);
@@ -163,7 +163,7 @@ export default function Game() {
       setActs({ ...acts, [trackStack]: [...cur, id] });
       return;
     }
-    if (mode === "none") act({ t: "buy", district: id });
+    if (mode === "buy") act({ t: "buy", district: id });
   }
 
   function confirmRun() {
@@ -185,6 +185,7 @@ export default function Game() {
   }
 
   const ranked = s.scores ? ranking(s, s.scores) : null;
+  const live = s.scores ?? score(s);
 
   return (
     <main className={css.game}>
@@ -203,7 +204,7 @@ export default function Game() {
             <span>{p.money} rb</span>
             <span>Nędza {p.poverty}{p.strike ? " · STRAJK" : ""}</span>
             <span>Weksle {p.loans}</span>
-            <span>PP {p.pp}</span>
+            <span title="Wynik, gdyby gra skończyła się teraz (z karami za Nędzę i weksle)">Wynik teraz: <b>{live[i].total} PP</b></span>
             <span>Ręka {p.hand.length}</span>
           </div>
         ))}
@@ -220,7 +221,7 @@ export default function Game() {
           )}
           {DISTRICTS.map((d) => {
             const owner = s.owner[d.id];
-            const buyable = myTurn && s.phase === "action" && mode === "none" && !canBuy(s, ME, d.id);
+            const buyable = myTurn && s.phase === "action" && mode === "buy" && !canBuy(s, ME, d.id);
             const trackable = mode === "run" && trackStack != null && canTrack(s, d.id, placedTracks);
             const chosen = placedTracks.includes(d.id);
             return (
@@ -299,9 +300,10 @@ export default function Game() {
               </>
             ) : mode === "none" ? (
               <>
-                <p>Wybierz akcję albo kliknij podświetloną dzielnicę, aby kupić grunt.</p>
+                <p>Wybierz jedną akcję na tę turę.</p>
                 <div className={css.actions}>
                   <button type="button" onClick={() => setMode("invest")}>Inwestuj</button>
+                  <button type="button" onClick={() => setMode("buy")}>Kup grunt</button>
                   <button type="button" onClick={() => setMode("run")} disabled={!me.empire.length}>Uruchom fabryki</button>
                   <button type="button" onClick={() => setMode("take3")}>Weź 3 karty</button>
                 </div>
@@ -316,6 +318,7 @@ export default function Game() {
                     ? "Kliknij dzielnice na planie, aby położyć tory."
                     : "Kliknij karty w Imperium, które chcesz uruchomić. Karty do zapłaty dobiorę automatycznie.")}
                   {mode === "take3" && "Wybierz do 3 kart z Giełdy lub talii."}
+                  {mode === "buy" && "Kliknij podświetloną dzielnicę na planie. Najedź na nią, by zobaczyć cenę, karty i PP."}
                 </p>
                 {mode === "invest" && plays.length > 0 && (
                   <ul className={css.pending}>
@@ -338,6 +341,7 @@ export default function Game() {
             )}
             {error && <p className={css.error} role="alert">{error}</p>}
           </div>
+          <Help />
         </div>
       </div>
 
@@ -418,5 +422,24 @@ function Setup({ onStart }: { onStart: (p: { name: string; bot?: BotLevel }[]) =
       </button>
       <p className={css.muted}>Multiplayer online pojawi się w kolejnym kroku.</p>
     </main>
+  );
+}
+
+function Help() {
+  return (
+    <details className={css.help}>
+      <summary>Jak grać</summary>
+      <p><b>Tura:</b> dobierz 1 kartę (talia lub Giełda), potem wykonaj jedną akcję.</p>
+      <ul>
+        <li><b>Inwestuj:</b> wyłóż kartę do Imperium. Za każdą odrzucasz kartę tego samego koloru i płacisz koszt w rublach.</li>
+        <li><b>Kup grunt:</b> zajmij dzielnicę. Pierwsza musi być startowa (Stare Miasto, Nowe Miasto, Łódka), kolejne sąsiadują z zajętymi. Dostajesz karty i PP na koniec.</li>
+        <li><b>Weź 3 karty</b> z talii lub Giełdy.</li>
+        <li><b>Uruchom fabryki:</b> używasz kart z Imperium (ruble, PP, mniej Nędzy, tory). Potem dostajesz Nędzę: stosy + karty w ręce − Twoje dzielnice.</li>
+      </ul>
+      <p><b>Nędza</b> odejmuje PP na koniec. Przy 12+ wybucha <b>Strajk</b>: Twój Przemysł nie pracuje przy następnym uruchomieniu.</p>
+      <p><b>Weksle:</b> gdy brakuje rubli, bank daje 10 rb. Spłata 15 rb na początku tury, niespłacony to −7 PP.</p>
+      <p><b>Tory</b> (Dworzec, Tramwaj, Kolej) łączą dzielnice od Śródmieścia: +2 PP za Twoją dzielnicę z torem. Miasteczka (Zgierz, Pabianice, Aleksandrów, Stryków) kupisz dopiero, gdy tor dojdzie do sąsiedniej dzielnicy.</p>
+      <p><b>Koniec:</b> gdy talia się skończy, każdy ma jeszcze jedną turę. Wygrywa najwięcej PP.</p>
+    </details>
   );
 }
