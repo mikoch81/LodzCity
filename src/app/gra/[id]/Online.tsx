@@ -56,7 +56,7 @@ export default function Online({ id }: { id: string }) {
     };
   }, [id, call, token]);
 
-  if (!v) return <main className={css.setup}><p>{err || "Ładowanie…"}</p></main>;
+  if (!v) return <main className={css.menu}><div className={css.menuCol}><div className={`${css.plaque} ${css.setup}`}><p>{err || "Ładowanie…"}</p></div></div></main>;
 
   if (v.seat < 0) return <Join started={!!v.state} full={v.players.length >= 4} onJoin={(name) => call({ op: "join", name })} />;
 
@@ -75,16 +75,16 @@ function Join({ started, full, onJoin }: { started: boolean; full: boolean; onJo
   const [name, setName] = useState("");
   const [err, setErr] = useState("");
   if (started || full) {
-    return <main className={css.setup}><h1>Fabrykant</h1><p>{started ? "Ta gra już trwa." : "Pokój jest pełny."}</p><Link href="/">Nowa gra</Link></main>;
+    return <main className={css.menu}><div className={css.menuCol}><div className={`${css.plaque} ${css.setup}`}><h1>Fabrykant</h1><p>{started ? "Ta gra już trwa." : "Pokój jest pełny."}</p><Link href="/">Nowa gra</Link></div></div></main>;
   }
   return (
-    <main className={css.setup}>
+    <main className={css.menu}><div className={css.menuCol}><div className={`${css.plaque} ${css.setup}`}>
       <h1>Fabrykant</h1>
       <p>Zaproszono Cię do gry online.</p>
       <label>Twoje imię <input value={name} onChange={(e) => setName(e.target.value)} maxLength={24} /></label>
       <button type="button" onClick={async () => setErr((await onJoin(name)) ?? "")}>Dołącz</button>
       {err && <p className={css.error} role="alert">{err}</p>}
-    </main>
+    </div></div></main>
   );
 }
 
@@ -96,7 +96,7 @@ function Lobby({ v, onStart }: { v: GameView; onStart: (bots: number, level: Bot
   const [copied, setCopied] = useState(false);
   const link = typeof window === "undefined" ? "" : window.location.href;
   return (
-    <main className={css.setup}>
+    <main className={css.menu}><div className={css.menuCol}><div className={`${css.plaque} ${css.setup}`}>
       <h1>Pokój gry</h1>
       <p>Wyślij ten link znajomym:</p>
       <button type="button" onClick={() => navigator.clipboard.writeText(link).then(() => setCopied(true))}>
@@ -128,6 +128,6 @@ function Lobby({ v, onStart }: { v: GameView; onStart: (bots: number, level: Bot
         <p className={css.muted}>Czekamy, aż gospodarz zacznie grę.</p>
       )}
       {err && <p className={css.error} role="alert">{err}</p>}
-    </main>
+    </div></div></main>
   );
 }
