@@ -20,8 +20,12 @@ export class MemoryStore implements Store {
   }
 }
 
+// names differ between manual setup and the Vercel–Supabase integration (legacy vs new keys)
+const DB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+const DB_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+
 class SupabaseStore implements Store {
-  db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+  db = createClient(DB_URL!, DB_KEY!, {
     auth: { persistSession: false },
   });
 
@@ -64,7 +68,7 @@ const g = globalThis as { fabrykantStore?: Store };
 export function getStore(): Store {
   if (g.fabrykantStore) return g.fabrykantStore;
   let store: Store;
-  if (process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) store = new SupabaseStore();
+  if (DB_URL && DB_KEY) store = new SupabaseStore();
   else if (process.env.NODE_ENV !== "production") store = new MemoryStore(); // shortcut: local dev only, lost on restart
   else throw new Error("Brak konfiguracji Supabase (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY).");
   return (g.fabrykantStore = store);

@@ -9,7 +9,7 @@ import { Board } from "../../Game";
 import css from "../../Game.module.css";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 export default function Online({ id }: { id: string }) {
   const key = `fabrykant:${id}`;
