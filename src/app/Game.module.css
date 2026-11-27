@@ -15,6 +15,8 @@
 .edge { stroke: #7a6550; stroke-width: 0.35; stroke-dasharray: 1 0.8; }
 .trackLine { stroke: var(--gold); stroke-width: 0.9; }
 .district circle { stroke: #1d1714; stroke-width: 0.5; transition: transform 0.2s; }
+.district { outline: none; } /* browser draws a box around the whole <g>; ring below replaces it */
+.district:focus-visible circle { stroke: var(--gold) !important; stroke-width: 1.2 !important; }
 .clickable { cursor: pointer; }
 .clickable:hover circle { stroke: #fff; }
 .ring { stroke: var(--paper) !important; stroke-width: 0.7 !important; stroke-dasharray: 1.2 0.8; }
@@ -68,3 +70,15 @@
 .help summary { cursor: pointer; font-family: var(--font-display); font-size: 1.15rem; color: var(--gold); }
 .help p, .help ul { margin-top: 8px; }
 .help ul { padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+
+/* phone: pinch to zoom the map (usePanZoom), market in two rows, smaller cards */
+.boardWrap { position: relative; }
+.unzoom { position: absolute; top: 8px; right: 8px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--gold); background: #2a211cdd; color: var(--paper); }
+@media (max-width: 600px) {
+  .game { padding: 8px; gap: 12px; }
+  .header h1 { font-size: 1.8rem; }
+  .market { grid-template-columns: repeat(3, 1fr) !important; }
+  .card { width: 104px; min-height: 150px; }
+  .cardName { font-size: 0.9rem; }
+  .middle { grid-template-columns: minmax(0, 1fr); }
+}
