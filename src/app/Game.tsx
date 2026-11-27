@@ -371,7 +371,7 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
       <aside className={css.right}>
         <section className={`${css.plaque} ${css.market}`} aria-label="Giełda">
           <h2 className={css.tab}>Giełda</h2>
-          <div className={css.slots} style={{ gridTemplateColumns: `repeat(${Math.ceil(s.slots / 2)}, 1fr)` }}>
+          <div className={css.slots} style={{ gridTemplateColumns: `repeat(${s.slots}, 1fr)` }}>
             {s.market.map((m, i) => {
               const canTake = myTurn && (s.phase === "draw" || (mode === "take3" && !sources.includes(i) && sources.length < 3));
               return m == null ? <div key={i} className={css.slot} /> : (
@@ -486,8 +486,8 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
           ) : drawer === "help" ? <Help /> : (
             <>
               <h2>Imperium: {s.players[drawer].name}</h2>
+              {s.players[drawer].empire.length === 0 && <p className={css.muted}>Jeszcze nic nie zbudowano.</p>}
               <div className={css.stacks}>
-                {s.players[drawer].empire.length === 0 && <p className={css.muted}>Jeszcze nic nie zbudowano.</p>}
                 {s.players[drawer].empire.map((st, k) => (
                   <div key={k} className={css.stack}>
                     <Card d={def(s, st.cards.at(-1)!)} uid={st.cards.at(-1)} small dim={st.flipped} />
