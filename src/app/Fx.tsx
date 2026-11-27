@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Fx, State } from "@/engine/engine";
 import css from "./Fx.module.css";
+import { setSound, sfx } from "./sound";
 
 const UNIT: Record<Fx["k"], string> = { money: "rb", poverty: "Nędzy", loan: "weksel", pp: "PP" };
 const MAX_TOKENS: Record<Fx["k"], number> = { money: 8, poverty: 8, loan: 3, pp: 6 };
@@ -12,21 +13,28 @@ function center(el: Element) {
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
 
-/** Animation on/off, remembered per browser. */
-export function useAnimPref(): [boolean, (on: boolean) => void] {
+/** An on/off setting remembered per browser (animations, sound). */
+export function usePref(key: string, apply: (on: boolean) => void = () => {}): [boolean, (on: boolean) => void] {
   const [on, setOn] = useState(true);
   useEffect(() => {
     try {
-      setOn(localStorage.getItem("fabrykant:anim") !== "off");
+      const v = localStorage.getItem(`fabrykant:${key}`) !== "off";
+      setOn(v);
+      apply(v);
     } catch {}
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
   return [on, (v) => {
     setOn(v);
+    apply(v);
     try {
-      localStorage.setItem("fabrykant:anim", v ? "on" : "off");
+      localStorage.setItem(`fabrykant:${key}`, v ? "on" : "off");
     } catch {}
   }];
 }
+
+export const useAnimPref = () => usePref("anim");
+export const useSoundPref = () => usePref("sound", setSound);
 
 /**
  * Plays the last action's resource changes (s.fx): tokens fly between the card, district or bank and the player's counter.
@@ -41,7 +49,7 @@ export function useFxPlayer(s: State, enabled: boolean) {
     last.current = key;
     if (!s.fx?.length) return;
     const still = !enabled || matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let delay = 0;
+    let delay = 0, whistled = false;
     for (const f of s.fx) {
       const counter = document.querySelector(`[data-res="${f.p}-${f.k}"]`);
       if (!counter) continue;
@@ -50,6 +58,16 @@ export function useFxPlayer(s: State, enabled: boolean) {
         (f.at && document.querySelector(`[data-district="${f.at}"]`)) ||
         document.querySelector("[data-bank]");
       play(f, counter, other || counter, delay, still);
+      const at = delay / 1000;
+      if (f.k === "money") sfx.coins(Math.abs(f.n), at);
+      if (f.k === "loan" && f.n > 0) sfx.stamp(at);
+      if (f.k === "poverty" && f.n > 0) sfx.poverty(at);
+      if (f.k === "pp" && f.n > 0) sfx.pp(at);
+      if (f.card != null && f.n > 0 && other) {
+        if (!whistled) sfx.whistle(at);
+        whistled = true;
+        if (!still) smoke(other, delay);
+      }
       delay += still ? 0 : 250;
     }
   }, [s, enabled]);
@@ -84,6 +102,26 @@ function play(f: Fx, counter: Element, other: Element, delay: number, still: boo
     [{ transform: "scale(1)" }, { transform: "scale(1.3)", color: f.k === "poverty" ? "#ff9b8a" : "#e8c66a" }, { transform: "scale(1)" }],
     { duration: 350, delay: delay + 600 },
   );
+}
+
+/** Factory chimney smoke rising from a card that just ran. */
+function smoke(card: Element, delay: number) {
+  const r = card.getBoundingClientRect();
+  for (let i = 0; i < 4; i++) {
+    const p = document.createElement("div");
+    p.className = css.smoke;
+    p.setAttribute("aria-hidden", "true");
+    document.body.appendChild(p);
+    const x = r.left + r.width * (0.3 + i * 0.13), y = r.top + 10;
+    p.animate(
+      [
+        { transform: `translate(${x}px, ${y}px) scale(0.4)`, opacity: 0 },
+        { transform: `translate(${x + 4}px, ${y - 20}px) scale(1)`, opacity: 0.7, offset: 0.3 },
+        { transform: `translate(${x + 16}px, ${y - 60}px) scale(2)`, opacity: 0 },
+      ],
+      { duration: 1400, delay: delay + i * 120, easing: "ease-out", fill: "both" },
+    ).onfinish = () => p.remove();
+  }
 }
 
 function label(layer: HTMLElement, f: Fx, at: { x: number; y: number }, delay: number, still: boolean) {

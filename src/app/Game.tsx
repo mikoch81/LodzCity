@@ -8,7 +8,7 @@ import {
   type Action, type BotLevel, type State,
 } from "@/engine/engine";
 import { ART } from "./art";
-import { Count, useAnimPref, useFxPlayer } from "./Fx";
+import { Count, useAnimPref, useFxPlayer, useSoundPref } from "./Fx";
 import css from "./Game.module.css";
 import { MAP_STYLES, Terrain, type MapStyle } from "./Terrain";
 import tcss from "./Terrain.module.css";
@@ -129,6 +129,7 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
   const [mode, setMode] = useState<Mode>("none");
   const zoom = usePanZoom();
   const [anim, setAnim] = useAnimPref();
+  const [sound, setSoundOn] = useSoundPref();
   useFxPlayer(s, anim);
   const [mapStyle, setMapStyle] = useState<MapStyle>("sepia");
   useEffect(() => {
@@ -258,6 +259,10 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
             Animacje: {anim ? "wł." : "wył."}
           </button>
           {" · "}
+          <button type="button" className={css.link} onClick={() => setSoundOn(!sound)} aria-pressed={sound}>
+            Dźwięk: {sound ? "wł." : "wył."}
+          </button>
+          {" · "}
           <label>
             Mapa:{" "}
             <select className={css.link} value={mapStyle} onChange={(e) => {
@@ -345,7 +350,7 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
             {s.market.map((m, i) => {
               const canTake = myTurn && (s.phase === "draw" || (mode === "take3" && !sources.includes(i) && sources.length < 3));
               return m == null ? <div key={i} className={css.slot} /> : (
-                <Card key={i} d={def(s, m)} uid={m} small selected={sources.includes(i)}
+                <Card key={m} d={def(s, m)} uid={m} small selected={sources.includes(i)}
                   onClick={canTake ? () => (s.phase === "draw" ? act({ t: "draw", from: i }) : setSources([...sources, i])) : undefined} />
               );
             })}

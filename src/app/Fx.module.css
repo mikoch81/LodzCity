@@ -38,3 +38,5 @@
 }
 .good { color: #f0d27a; }
 .bad { color: #ff9b8a; }
+
+.smoke { position: fixed; left: 0; top: 0; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; pointer-events: none; z-index: 49; background: radial-gradient(circle, #8a8580cc, #5b5a5700 70%); }
