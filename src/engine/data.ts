@@ -58,13 +58,19 @@ export const CARDS: CardDef[] = [
   c("ochronka", "Ochronka dla dzieci", 1, "kultura", 2, 1, 2, { pay: money(1), effect: { poverty: -1 }, flips: false }),
   c("lazaret", "Lazaret miejski", 1, "kultura", 3, 1, 1, { pay: card1, effect: { poverty: -2 }, flips: true }),
   c("bezrobotni", "Bezrobotni tkacze", 1, "nedza", 0, 0, 4),
+  c("wendisch", "Przędzalnia Wendischa", 1, "przemysl", 3, 1, 1, { pay: card1, effect: { money: 4 }, flips: false }),
+  c("mlyn", "Młyn wodny na Jasieniu", 1, "przemysl", 2, 0, 2, { pay: money(1), effect: { money: 3 }, flips: true }),
+  c("wodny_rynek", "Wodny Rynek", 1, "wladza", 2, 1, 1, { pay: card1, effect: { money: 2, pp: 1 }, flips: true }),
+  c("kontrakt", "Kontrakt osadniczy", 1, "wladza", 2, 0, 1, { pay: card1, effect: { money: 3 }, flips: true }),
+  c("sw_trojcy", "Kościół św. Trójcy", 1, "kultura", 4, 2, 1, { pay: card1, effect: { poverty: -2 }, flips: false }),
+  c("pozar", "Pożar drewnianej osady", 1, "nedza", 0, 0, 2),
 
   // Epoka II. Ziemia obiecana (1860–1890)
   c("scheibler", "Przędzalnia Scheiblera", 2, "przemysl", 7, 3, 1, { pay: card1, effect: { money: 8 }, flips: false }),
   c("manufaktura", "Manufaktura Poznańskiego", 2, "przemysl", 8, 4, 1, { pay: card2, effect: { money: 6, pp: 2 }, flips: false }),
   c("grohman", "Zakłady Grohmana", 2, "przemysl", 6, 2, 1, { pay: card1, effect: { money: 6 }, flips: false }),
   c("heinzel_fabryka", "Fabryka Heinzla", 2, "przemysl", 6, 2, 1, { pay: card1, effect: { money: 6 }, flips: false }),
-  c("tkalnia_mech", "Tkalnia mechaniczna", 2, "przemysl", 4, 1, 3, { pay: card1, effect: { money: 5 }, flips: true }),
+  c("tkalnia_mech", "Tkalnia mechaniczna", 2, "przemysl", 4, 1, 4, { pay: card1, effect: { money: 5 }, flips: true }),
   c("wykonczalnia", "Wykończalnia", 2, "przemysl", 3, 0, 2, { pay: card1, effect: { money: 4 }, flips: false }),
   c("przedzalnia_parowa", "Przędzalnia parowa", 2, "przemysl", 5, 1, 3, { pay: card1, effect: { money: 4, pp: 1 }, flips: true }),
   c("bielnik", "Bielnik", 2, "przemysl", 2, 0, 1, { pay: money(1), effect: { money: 3 }, flips: true }),
@@ -85,6 +91,15 @@ export const CARDS: CardDef[] = [
   c("palac_herbsta", "Pałac Herbsta", 2, "kultura", 8, 4, 1, { pay: card1, effect: { pp: 3 }, flips: false }),
   c("czynszowki", "Czynszówki na Bałutach", 2, "nedza", 0, 0, 4),
   c("cholera", "Epidemia cholery", 2, "nedza", 0, 0, 4),
+  c("kunitzer", "Widzewska Manufaktura", 2, "przemysl", 7, 3, 1, { pay: card1, effect: { money: 7 }, flips: false }),
+  c("familoki", "Familoki na Księżym Młynie", 2, "przemysl", 3, 1, 2, { pay: money(2), effect: { poverty: -2 }, flips: false }),
+  c("palac_heinzla", "Pałac Heinzla", 2, "wladza", 7, 3, 1, { pay: card1, effect: { pp: 3 }, flips: false }),
+  c("pasaz_meyera", "Pasaż Meyera", 2, "wladza", 4, 2, 1, { pay: card1, effect: { money: 3, pp: 1 }, flips: true }),
+  c("sw_krzyza", "Kościół Podwyższenia św. Krzyża", 2, "kultura", 4, 2, 1, { pay: card1, effect: { poverty: -2 }, flips: false }),
+  c("sw_jana", "Kościół św. Jana", 2, "kultura", 5, 2, 1, { pay: card1, effect: { poverty: -3 }, flips: true }),
+  c("kaplica_scheiblera", "Kaplica Scheiblera", 2, "kultura", 5, 3, 1, { pay: money(2), effect: { pp: 2 }, flips: false }),
+  c("palac_scheiblera", "Pałac Scheiblera", 2, "kultura", 7, 3, 1, { pay: card1, effect: { pp: 3 }, flips: false }),
+  c("kryzys_bawelniany", "Głód bawełny", 2, "nedza", 0, 0, 2),
 
   // Epoka III. Wielkie fortuny (1890–1914)
   c("ec1", "Elektrownia EC1", 3, "przemysl", 9, 3, 1, { pay: card1, effect: { money: 6 }, flips: false }, { permanent: "noStrike" }),
@@ -106,9 +121,38 @@ export const CARDS: CardDef[] = [
   c("bunt", "Bunt łódzki 1892", 3, "nedza", 0, 0, 1, undefined, { event: "strike8" }),
   c("nocna_zmiana", "Nocna zmiana dzieci", 3, "nedza", 0, 0, 2),
   c("bezrobocie", "Bezrobocie", 3, "nedza", 0, 0, 2),
+  c("zakardowa", "Tkalnia żakardowa", 3, "przemysl", 6, 2, 1, { pay: card1, effect: { money: 6 }, flips: false }),
+  c("bank_kupiecki", "Bank Kupiecki Łódzki", 3, "wladza", 6, 2, 1, { pay: card1, effect: { money: 5 }, flips: false }),
+  c("katedra", "Katedra św. Stanisława Kostki", 3, "kultura", 9, 4, 1, { pay: card1, effect: { poverty: -4 }, flips: false }),
+  c("cmentarz_zydowski", "Nowy Cmentarz Żydowski", 3, "kultura", 6, 3, 1, { pay: card1, effect: { poverty: -2 }, flips: false }),
+  c("mauzoleum", "Mauzoleum Poznańskich", 3, "kultura", 7, 3, 1, { pay: money(3), effect: { pp: 3 }, flips: false }),
+  c("anny_marii", "Szpital Anny Marii", 3, "kultura", 6, 2, 1, { pay: cult1, effect: { poverty: -4 }, flips: true }),
+  c("lokaut", "Lokaut 1906", 3, "nedza", 0, 0, 2),
 ];
 
 const ABOUT: Record<string, string> = {
+ "wendisch": "Jedna z pierwszych mechanicznych przędzalni w Łodzi, uruchomiona przez Christiana Wendischa w latach 20. XIX w.",
+ "mlyn": "Młyny wodne nad Jasieniem i Łódką były pierwszym napędem łódzkich zakładów.",
+ "wodny_rynek": "Rynek przy Piotrkowskiej (dziś plac Zwycięstwa), przy którym Scheibler postawił pierwszą przędzalnię.",
+ "kontrakt": "Osadnicy z Saksonii, Śląska i Czech dostawali działki w zamian za osiedlenie się i uruchomienie warsztatu.",
+ "sw_trojcy": "Ewangelicki kościół przy Nowym Rynku z lat 1826–1829, dla przybyłych z Niemiec tkaczy.",
+ "pozar": "Drewniane domy tkaczy płonęły szybko, a pożar mógł strawić całą ulicę.",
+ "kunitzer": "Wielki zakład włókienniczy na Widzewie, założony pod koniec lat 70. XIX w. przez Juliusza Kunitzera.",
+ "familoki": "Ceglane domy robotnicze, które Scheibler budował dla swoich pracowników od lat 70. XIX w.",
+ "palac_heinzla": "Pałac Juliusza Heinzla przy Piotrkowskiej 104 z lat 80. XIX w.; dziś siedziba władz miasta.",
+ "pasaz_meyera": "Prywatna ulica z kamienicami, wytyczona przez Ludwika Meyera w latach 80. XIX w.; dziś ul. Moniuszki.",
+ "sw_krzyza": "Katolicki kościół przy dzisiejszej ul. Sienkiewicza z połowy XIX w.",
+ "sw_jana": "Ewangelicki kościół przy ul. Sienkiewicza z lat 80. XIX w.",
+ "kaplica_scheiblera": "Neogotycka kaplica grobowa Karola Scheiblera na Starym Cmentarzu przy Ogrodowej.",
+ "palac_scheiblera": "Rezydencja Scheiblerów przy Wodnym Rynku; dziś Muzeum Kinematografii.",
+ "kryzys_bawelniany": "Wojna secesyjna w USA (1861–1865) odcięła dostawy bawełny i zatrzymała przędzalnie.",
+ "zakardowa": "Krosna żakardowe tkały wzorzyste tkaniny sterowane kartami perforowanymi.",
+ "bank_kupiecki": "Bank łódzkiego kupiectwa, jedna z instytucji finansujących rozwój miasta przed I wojną światową.",
+ "katedra": "Neogotycka świątynia przy Piotrkowskiej, budowana w latach 1901–1912.",
+ "cmentarz_zydowski": "Cmentarz przy ul. Brackiej, założony w 1892 r., jeden z największych cmentarzy żydowskich w Europie.",
+ "mauzoleum": "Grobowiec Izraela i Eleonory Poznańskich na cmentarzu przy Brackiej, bogato zdobiony mozaikami.",
+ "anny_marii": "Szpital dziecięcy ufundowany przez rodzinę Scheiblerów i Herbstów na początku XX w.",
+ "lokaut": "Na przełomie 1906 i 1907 r. fabrykanci zamknęli zakłady, by złamać ruch strajkowy.",
  "warsztat": "Od 1820 r. Łódź była osadą przemysłową; zaczynano od ręcznych krosien w domach tkaczy.",
  "geyer": "Ludwik Geyer zbudował Białą Fabrykę przy Piotrkowskiej w latach 1835–1839; w 1839 r. stanęła tu pierwsza w Łodzi maszyna parowa.",
  "kolonia": "Osadę Łódka wytyczono w 1824 r. dla tkaczy lnu i bawełny, z działkami ciągnącymi się do rzeki.",
@@ -169,6 +213,8 @@ const ABOUT: Record<string, string> = {
  "bezrobocie": "Kryzysy w handlu z Rosją zamykały fabryki i wyrzucały robotników na bruk."
 };
 for (const d of CARDS) d.about = ABOUT[d.id];
+
+export const DECK_SIZE = CARDS.reduce((n, d) => n + d.copies, 0);
 
 export const CARD_BY_ID: Record<string, CardDef> = Object.fromEntries(CARDS.map((d) => [d.id, d]));
 
