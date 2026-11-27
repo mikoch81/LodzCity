@@ -25,6 +25,10 @@ describe("talia", () => {
     expect([count(1), count(2), count(3)]).toEqual([28, 44, 32]);
   });
 
+  it("każda karta ma notkę historyczną", () => {
+    expect(CARDS.filter((c) => !c.about).map((c) => c.id)).toEqual([]);
+  });
+
   it("rozdaje po 6 kart z Epoki I", () => {
     const s = two();
     for (const p of s.players) {
