@@ -8,8 +8,9 @@
   --handH: calc(206px * var(--s) * 0.8);
   --leftW: clamp(230px, 17vw, 340px);
   --rightW: clamp(330px, 24vw, 480px);
-  height: 100vh; height: 100dvh; overflow: clip; position: relative;
-  display: grid; gap: var(--pad); padding: var(--pad);
+  height: calc(100vh / var(--z)); height: calc(100dvh / var(--z)); overflow: clip; position: relative;
+  display: grid; gap: var(--pad);
+  padding: max(var(--pad), env(safe-area-inset-top)) max(var(--pad), env(safe-area-inset-right)) max(var(--pad), env(safe-area-inset-bottom)) max(var(--pad), env(safe-area-inset-left));
   grid-template:
     "top top top" var(--topH)
     "left center right" minmax(0, 1fr)
@@ -22,6 +23,8 @@
 @media (max-height: 860px) { .table { --s: 0.86; } }
 @media (max-height: 720px) { .table { --s: 0.74; } }
 @media (min-height: 1200px) { .table { --s: 1.3; } }
+/* zoomed 4K (globals.css): the zoom already does the scaling */
+@media (min-height: 1500px) and (min-width: 2200px) { .table { --s: 1; } }
 
 /* dark leather plaque with a gold inner rule */
 .plaque {
@@ -137,9 +140,9 @@
 .fan { position: absolute; left: 50%; bottom: calc(var(--pad) * -1); width: 0; height: 100%; }
 .slotFan {
   --w: calc(140px * var(--s));
-  --step: min(calc(var(--w) * 0.8), calc((100vw - var(--leftW) - var(--rightW) - 6 * var(--pad) - var(--w) * 1.3) / max(var(--n) - 1, 1)));
+  --step: min(calc(var(--w) * 0.8), calc((100vw / var(--z) - var(--leftW) - var(--rightW) - 6 * var(--pad) - var(--w) * 1.3) / max(var(--n) - 1, 1)));
   --tilt: calc(21deg / var(--n)); --drop: calc(18px / var(--n));
-  position: absolute; left: calc(var(--w) / -2); bottom: calc(206px * var(--s) * -0.18);
+  position: absolute; left: -70px; /* half the unscaled 140px card: scale() keeps its centre */ bottom: calc(206px * var(--s) * -0.18);
   transform-origin: 50% 130%;
   transform: translateX(calc(var(--o) * var(--step))) translateY(calc(var(--o) * var(--o) * var(--drop))) rotate(calc(var(--o) * var(--tilt))) scale(var(--s));
   transition: transform 0.18s ease-out; z-index: 1;
@@ -175,7 +178,7 @@
 
 /* --- start menu: full-window painting, logo, a plaque with the options --- */
 .menu {
-  min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; padding: 24px clamp(16px, 6vw, 110px);
+  min-height: calc(100vh / var(--z)); min-height: calc(100dvh / var(--z)); display: flex; align-items: center; padding: 24px clamp(16px, 6vw, 110px);
   background: linear-gradient(90deg, #0d0806f0 0%, #0d0806c0 32%, #0d080600 62%), url(/ui/menu.webp) center / cover, #1d1714;
 }
 .menuCol { width: min(430px, 100%); display: flex; flex-direction: column; gap: 18px; }
@@ -200,24 +203,89 @@
 .help ul { padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 .link option { color: var(--ink); }
 
-/* phone / narrow window: the table becomes one scrolling column */
-@media (max-width: 900px) {
+/* view tabs: only used by the phone portrait layout */
+.tabs { display: none; }
+
+/* phone (and tablet) held upright: one column, the board / Giełda / Imperium share the middle via tabs */
+@media (orientation: portrait) and (max-width: 1000px), (max-width: 700px) {
   .table {
-    height: auto; overflow: visible; --s: 0.8;
-    grid-template: "top" auto "center" auto "hand" auto "left" auto "right" auto / minmax(0, 1fr);
+    --s: 0.62; --pad: 6px; --leftW: 0px; --rightW: 0px; --handH: calc(206px * var(--s) * 0.82);
+    grid-template:
+      "top top top" auto
+      "me me me" auto
+      "view view view" minmax(0, 1fr)
+      "hint hint hint" auto
+      "deck acts seal" auto
+      "hand hand hand" var(--handH)
+      "tabs tabs tabs" auto
+      / auto minmax(0, 1fr) auto;
   }
-  .top { flex-wrap: wrap; }
-  .opp { flex: 1 1 140px; min-height: 52px; }
-  .center { container-type: inline-size; }
-  .boardWrap { width: 100cqw; height: 100cqw; }
-  .hand { padding-top: 14px; }
-  .fan { position: static; width: auto; height: auto; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-  .slotFan, .slotFan:hover, .slotFan:focus-within, .slotFan:has(.selected), .slotFan:has(.selected):hover { position: relative; left: auto; bottom: auto; transform: none; }
-  .slotFan .card { width: 108px; min-height: 172px; }
-  .handCount { position: static; display: inline-block; margin-bottom: 6px; }
-  .empire { overflow: visible; }
-  .drawer { position: fixed; top: 8px; bottom: 8px; left: 8px; width: auto; right: 8px; }
-  .modal { position: fixed; }
+  .left, .right, .deckRow { display: contents; }
+  .top { overflow-x: auto; scrollbar-width: none; }
+  /* menu and round first so they never scroll away; rivals scroll sideways when there are many */
+  .tools, .round { order: -1; }
+  .opp { flex: 1 0 150px; min-height: 42px; padding: 3px 6px 3px 3px; gap: 5px; }
+  .portrait { width: 28px; }
+  .name { font-size: 0.85rem; }
+  .stats { font-size: 0.68rem; gap: 0 6px; }
+  .round { padding: 0 6px; }
+  .round b { font-size: 0.85rem; }
+  .round small { display: none; }
+  .tools { padding: 0 3px; gap: 3px; }
+  .knob { width: 27px; font-size: 0.9rem; }
+  .me { grid-area: me; padding: 4px 8px; gap: 8px; }
+  .big { width: 30px; }
+  .me .stats { font-size: 0.78rem; }
+  .lastLog { display: none; }
+  .center, .market, .empire { grid-area: view; }
+  .table:not([data-view="board"]) .center,
+  .table:not([data-view="market"]) .market,
+  .table:not([data-view="empire"]) .empire { display: none; }
+  .market { overflow-y: auto; }
+  .slots { grid-template-columns: repeat(3, 1fr) !important; }
+  .stacks { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+  .hint { grid-area: hint; flex: none; min-height: 0; max-height: 4.6em; padding: 5px 10px; font-size: 0.8rem; }
+  .hint > .tab { display: none; }
+  .deck { grid-area: deck; width: 52px; }
+  .deck span { font-size: 0.7rem; margin-bottom: 3px; }
+  .acts { grid-area: acts; padding: 6px; }
+  .acts > .tab { display: none; }
+  .acts .muted { font-size: 0.78rem; text-align: center; }
+  .btns { gap: 5px; }
+  .brass { font-size: 0.95rem; padding: 6px 4px; }
+  .sealRow { grid-area: seal; align-items: center; }
+  .seal { width: 76px; }
+  .seal span { font-size: 0.78rem; padding: 2px 6px; }
+  /* a tapped card rises to full size above the action row, so its text is readable and the buttons stay free */
+  .slotFan:hover, .slotFan:focus-within, .slotFan:has(.selected):hover { transform: translateX(calc(var(--o) * var(--step))) translateY(-225px) rotate(0deg) scale(1); }
+  .handCount { display: none; }
+  /* fan cards sink below the hand row; clip them there so they don't slide under the tabs (lifting up stays visible) */
+  .hand { clip-path: inset(-100vh -100vw 0 -100vw); }
+  .tabs { grid-area: tabs; position: relative; z-index: 35; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .tabs button {
+    min-height: 40px; border-radius: 6px; border: 1px solid var(--gold-dim); background: #1b130ee6; color: var(--paper);
+    font-family: var(--font-display), Georgia, serif; font-weight: 700; font-size: 1rem;
+  }
+  .tabs button[aria-pressed="true"] { border-color: var(--gold); color: var(--ink); background: linear-gradient(180deg, #f3dc98, #c9a24a 52%, #9a7832); }
+  .drawer { top: var(--pad); }
+}
+
+/* phone held sideways: the desktop table, shrunk; the right column scrolls if it must */
+@media (orientation: landscape) and (max-height: 600px) {
+  .table { --s: 0.5; --pad: 5px; --leftW: clamp(150px, 20vw, 200px); --rightW: clamp(210px, 28vw, 280px); }
+  .market { flex: 0 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+  .market, .acts { padding-top: 20px; }
+  .hint { flex: none; min-height: 0; max-height: 3.4em; padding: 4px 8px; font-size: 0.72rem; }
+  .hint > .tab { display: none; }
+  .deck { width: 44px; }
+  .brass { font-size: 0.85rem; padding: 5px 4px; }
+  .me { padding: 4px 6px; gap: 6px; }
+  .stats { font-size: 0.68rem; }
+  .lastLog { display: none; }
+  .opp { padding: 0 8px 0 3px; gap: 6px; }
+  .seal { width: 58px; }
+  .seal span { font-size: 0.72rem; }
+  .slotFan:hover, .slotFan:focus-within, .slotFan:has(.selected):hover { transform: translateX(calc(var(--o) * var(--step))) translateY(calc(206px * var(--s) * -0.9)) rotate(0deg) scale(0.85); }
 }
 
 /* aerial photo of the city under translucent district points */
