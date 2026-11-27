@@ -1,6 +1,7 @@
 .game { max-width: 1280px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 18px; }
 .header { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; }
 .header h1 { font-size: 2.4rem; }
+.link { background: none; font-family: inherit; cursor: pointer; border: none; color: var(--gold); text-decoration: underline dotted; font-size: inherit; }
 .muted { color: #a8998a; font-size: 0.85rem; }
 
 .players { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
@@ -11,23 +12,38 @@
 .middle { display: grid; grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr); gap: 16px; }
 @media (max-width: 860px) { .middle { grid-template-columns: 1fr; } }
 
-.board { width: 100%; background: radial-gradient(circle at 50% 50%, #4b3a2a, #2a201a); border-radius: 12px; border: 1px solid var(--gold); }
-.edge { stroke: #7a6550; stroke-width: 0.35; stroke-dasharray: 1 0.8; }
-.trackLine { stroke: var(--gold); stroke-width: 0.9; }
-.district circle { stroke: #1d1714; stroke-width: 0.5; transition: transform 0.2s; }
+/* aerial photo of the city under translucent district points */
+.board { width: 100%; border-radius: 12px; border: 2px solid var(--gold); background: #2a211c; box-shadow: 0 6px 18px #000a; }
+.edge { stroke: #f2e8d5; stroke-opacity: 0.75; stroke-width: 0.35; stroke-dasharray: 1 0.8; filter: drop-shadow(0 0 0.3px #000); }
+.trackBed { stroke: #3b2a1c; stroke-width: 1.5; stroke-dasharray: 0.3 0.7; }
+.trackLine { stroke: #e8c66a; stroke-width: 0.6; stroke-dasharray: 1; animation: draw 0.9s ease-out both; }
+@keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.district circle { stroke: #f2e8d5; stroke-width: 0.5; transition: fill 0.3s; }
 .district { outline: none; } /* browser draws a box around the whole <g>; ring below replaces it */
-.district:focus-visible circle { stroke: var(--gold) !important; stroke-width: 1.2 !important; }
+.district:focus-visible circle { stroke: var(--wladza) !important; stroke-width: 1.2 !important; }
 .clickable { cursor: pointer; }
-.clickable:hover circle { stroke: #fff; }
-.ring { stroke: var(--paper) !important; stroke-width: 0.7 !important; stroke-dasharray: 1.2 0.8; }
-.chosen { stroke: #fff !important; stroke-width: 1.1 !important; }
-.trackDot { fill: var(--gold); stroke: #1d1714; stroke-width: 0.3; }
-.label { font-size: 2.3px; fill: var(--paper); text-anchor: middle; pointer-events: none; }
+.clickable:hover circle { stroke: #ffd86b; stroke-width: 0.9; }
+.ring { stroke: #ffd86b !important; stroke-width: 0.7 !important; stroke-dasharray: 1.2 0.8; animation: march 1.2s linear infinite; }
+@keyframes march { to { stroke-dashoffset: -4; } }
+.chosen { stroke: var(--ink) !important; stroke-width: 1.1 !important; }
+.house { fill: var(--paper); stroke: var(--ink); stroke-width: 0.3; transform-box: fill-box; transform-origin: 50% 100%; animation: drop 0.45s cubic-bezier(.3,1.6,.5,1) both; }
+@keyframes drop { from { transform: translateY(-5px) scale(1.6); opacity: 0; } to { transform: none; opacity: 1; } }
+.trackDot { fill: #6e4b16; stroke: var(--paper); stroke-width: 0.3; }
+.label { font-size: 2.2px; fill: #f2e8d5; text-anchor: middle; pointer-events: none; font-family: var(--font-display), Georgia, serif; font-weight: 700; }
+.plate { fill: #1d1714; fill-opacity: 0.62; stroke: var(--gold); stroke-width: 0.15; pointer-events: none; }
 
 .side { display: flex; flex-direction: column; gap: 10px; }
 .market { display: grid; gap: 6px; }
 .slot { border: 1px dashed #5a4a3d; border-radius: 6px; min-height: 78px; }
-.deck { padding: 10px; border-radius: 8px; border: 1px solid var(--gold); background: #3a2c22; color: var(--paper); }
+/* card back: deep green cloth with a gold boat (the Łódź arms) */
+.deck {
+  padding: 12px; border-radius: 10px; border: 2px solid var(--gold); color: var(--paper); font-family: var(--font-display); font-size: 1.1rem; font-weight: 700;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 24'%3E%3Cpath d='M4 14h32l-5 7H9z M19 3v11 M19 4l9 8h-9' fill='none' stroke='%23b8913a' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E") 10px center / 40px 24px no-repeat,
+    repeating-linear-gradient(45deg, #0000 0 6px, #b8913a14 6px 7px),
+    #24365c;
+  box-shadow: inset 0 0 0 3px #24365c, inset 0 0 0 4px var(--gold), 0 3px 8px #0008;
+}
 
 .panel { background: #2a211c; border: 1px solid #5a4a3d; border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
 .panel button, .setup button { padding: 8px 14px; border-radius: 6px; border: 1px solid var(--gold); background: var(--przemysl); color: var(--paper); }
@@ -42,22 +58,56 @@
 .stack { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .others { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
 
+/* Card: a share certificate / textile label c. 1900. --c is the deck colour. */
 .card {
-  width: 132px; min-height: 180px; display: flex; flex-direction: column; gap: 6px; text-align: left;
-  background: var(--paper); color: var(--ink); border: 3px solid var(--c); border-radius: 8px; padding: 6px;
-  box-shadow: 0 2px 6px #0008; transition: transform 0.15s, box-shadow 0.15s;
+  width: 140px; min-height: 206px; display: flex; flex-direction: column; gap: 4px; text-align: left; position: relative;
+  color: var(--ink); border: 3px solid var(--c); border-radius: 10px; padding: 5px 7px 0;
+  background: radial-gradient(ellipse at 30% 20%, #fbf4e4, var(--paper) 60%, #e4d4b4);
+  box-shadow: inset 0 0 0 2px var(--paper), inset 0 0 0 3px var(--gold), 0 2px 6px #0008;
+  transition: transform 0.18s, box-shadow 0.18s;
 }
-.card:not(:disabled):hover { transform: translateY(-4px); box-shadow: 0 8px 14px #000a; }
+.card:not(:disabled):hover { transform: translateY(-6px) rotate(-1deg); box-shadow: inset 0 0 0 2px var(--paper), inset 0 0 0 3px var(--gold), 0 10px 18px #000a; }
 .card:disabled { opacity: 1; cursor: default; }
-.small { width: auto; min-height: 78px; font-size: 0.75rem; }
-.selected { outline: 3px solid var(--gold); transform: translateY(-6px); }
-.dim { filter: grayscale(0.8) brightness(0.75); }
-.cardTop { display: flex; justify-content: space-between; font-size: 0.7rem; font-weight: 600; color: var(--c); }
-.cardName { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; line-height: 1.1; }
-.small .cardName { font-size: 0.85rem; }
-.cardText { font-size: 0.72rem; flex: 1; }
-.cardFoot { display: flex; justify-content: space-between; font-size: 0.65rem; background: var(--c); color: var(--paper); margin: 0 -6px -6px; padding: 3px 6px; border-radius: 0 0 4px 4px; }
-.pp { font-weight: 700; color: var(--gold); }
+/* every card that appears (drawn, invested, dropped on the market) slides in */
+.card { animation: enter 0.35s cubic-bezier(.2,.8,.3,1.2) backwards; }
+@keyframes enter { from { opacity: 0; transform: translateY(-18px) scale(0.92) rotate(-2deg); } }
+.small { width: auto; min-height: 0; font-size: 0.75rem; padding: 4px 5px 0; gap: 2px; }
+.selected { outline: 3px solid var(--gold); outline-offset: 1px; transform: translateY(-8px); }
+.dim { filter: grayscale(0.8) brightness(0.75); animation: flip 0.5s ease-in-out; }
+@keyframes flip { 0% { transform: rotateY(0); filter: none; } 50% { transform: rotateY(90deg); } 100% { transform: rotateY(0); } }
+
+/* illustration window; without art, an engraved crosshatch in the deck colour */
+.art {
+  position: relative; height: 96px; margin: 0 -2px; border-radius: 6px 6px 2px 2px; border: 1px solid var(--gold);
+  background-size: cover; background-position: center;
+  background-color: color-mix(in srgb, var(--c) 30%, var(--paper));
+  background-image:
+    repeating-linear-gradient(45deg, #0000 0 3px, color-mix(in srgb, var(--c) 35%, #0000) 3px 4px),
+    repeating-linear-gradient(-45deg, #0000 0 5px, color-mix(in srgb, var(--c) 20%, #0000) 5px 6px);
+  box-shadow: inset 0 0 12px #0006;
+}
+.small .art { height: 34px; }
+.era, .cost {
+  position: absolute; top: 4px; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700;
+  min-width: 24px; height: 24px; padding: 0 4px; font-size: 0.8rem; box-shadow: 0 1px 3px #0008;
+}
+.era { left: 4px; border-radius: 4px; background: var(--paper); color: var(--c); border: 1px solid var(--gold); }
+.cost { right: 4px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff3c4, #d9a441 45%, #8a6420); color: #3b2808; }
+.small .era, .small .cost { top: 2px; height: 18px; min-width: 18px; font-size: 0.65rem; }
+.small .era { left: 2px; }
+.small .cost { right: 2px; }
+
+.cardName { font-family: var(--font-display); font-weight: 700; font-size: 1.08rem; line-height: 1.05; text-align: center; padding-top: 2px; }
+.cardName::after { content: ""; display: block; height: 6px; margin: 3px auto 0; width: 70%; background: radial-gradient(circle, var(--gold) 0 2px, #0000 3px) center / 6px 6px no-repeat, linear-gradient(var(--gold), var(--gold)) center / 100% 1px no-repeat; }
+.small .cardName { font-size: 0.82rem; }
+.small .cardName::after { display: none; }
+.cardText { font-size: 0.7rem; flex: 1; line-height: 1.3; text-align: center; }
+.cardFoot {
+  display: flex; justify-content: space-between; align-items: center; font-size: 0.62rem; letter-spacing: 0.06em; text-transform: uppercase;
+  background: var(--c); color: var(--paper); margin: 0 -7px; padding: 3px 7px; border-radius: 0 0 6px 6px; border-top: 1px solid var(--gold);
+}
+.small .cardFoot { margin: 0 -5px; padding: 2px 5px; }
+.pp { font-weight: 700; color: var(--gold); font-size: 0.75rem; }
 
 .log { padding-left: 18px; font-size: 0.85rem; color: #cbbba8; display: flex; flex-direction: column; gap: 2px; }
 
@@ -78,7 +128,10 @@
   .game { padding: 8px; gap: 12px; }
   .header h1 { font-size: 1.8rem; }
   .market { grid-template-columns: repeat(3, 1fr) !important; }
-  .card { width: 104px; min-height: 150px; }
+  .card { width: 108px; min-height: 172px; padding: 4px 5px 0; }
+  .card .art { height: 70px; }
+  .cardFoot { margin: 0 -5px; }
   .cardName { font-size: 0.9rem; }
   .middle { grid-template-columns: minmax(0, 1fr); }
 }
+.link option { color: var(--ink); }

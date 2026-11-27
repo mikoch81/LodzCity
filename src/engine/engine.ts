@@ -31,6 +31,15 @@ export type Score = {
   total: number;
 };
 
+/** One visible change of a resource, so the UI can animate it instead of a number changing silently. */
+export type Fx = {
+  p: number; // player index
+  k: "money" | "poverty" | "loan" | "pp";
+  n: number; // signed change
+  card?: number; // card uid it came from or went to
+  at?: string; // district id it came from or went to
+};
+
 export type State = {
   cards: Record<number, string>; // card uid -> card def id
   players: Player[];
@@ -46,6 +55,7 @@ export type State = {
   rng: number;
   log: string[];
   scores?: Score[];
+  fx?: Fx[]; // changes made by the last action only
 };
 
 export type Source = "deck" | number; // number = market index
@@ -134,14 +144,21 @@ export const repayCost = (s: State, p: Player) => (hasPerm(s, p, "loanRepay12") 
 export const landPrice = (s: State, p: Player, district: string) =>
   Math.max(0, DISTRICT_BY_ID[district].price - (hasPerm(s, p, "landDiscount") ? 1 : 0));
 
-function pay(s: State, p: Player, amount: number) {
+function fx(s: State, p: Player, k: Fx["k"], n: number, src: { card?: number; at?: string } = {}) {
+  if (n) (s.fx ??= []).push({ p: s.players.indexOf(p), k, n, ...src });
+}
+
+function pay(s: State, p: Player, amount: number, src: { card?: number; at?: string } = {}) {
   if (p.money < amount) {
     const n = Math.ceil((amount - p.money) / LOAN);
     p.loans += n;
     p.money += n * LOAN;
+    fx(s, p, "loan", n);
+    fx(s, p, "money", n * LOAN);
     s.log.push(`${p.name} bierze weksel (${n}× ${LOAN} rb).`);
   }
   p.money -= amount;
+  fx(s, p, "money", -amount, src);
 }
 
 function toMarket(s: State, uid: number) {
@@ -213,6 +230,7 @@ export function canTrack(s: State, district: string, placed: string[]): boolean 
 export function apply(state: State, a: Action): State {
   if (state.phase === "over") fail("Gra jest zakończona.");
   const s: State = structuredClone(state);
+  s.fx = [];
   const pi = s.current;
   const p = s.players[pi];
 
@@ -224,6 +242,8 @@ export function apply(state: State, a: Action): State {
       if (p.money < cost) fail(`Spłata kosztuje ${cost} rb.`);
       p.money -= cost;
       p.loans--;
+      fx(s, p, "money", -cost);
+      fx(s, p, "loan", -1);
       s.log.push(`${p.name} spłaca weksel.`);
       return s;
     }
@@ -262,7 +282,7 @@ export function apply(state: State, a: Action): State {
         if (def(s, play.discard!).color !== d.color) fail("Odrzucona karta musi mieć ten sam kolor.");
         removeFromHand(p, play.discard!);
         toMarket(s, play.discard!);
-        pay(s, p, d.cost);
+        pay(s, p, d.cost, { card: play.card });
         if (play.onto != null) {
           const st = p.empire[play.onto];
           if (!st) fail("Nie ma takiego stosu.");
@@ -281,7 +301,7 @@ export function apply(state: State, a: Action): State {
       const why = canBuy(s, pi, a.district);
       if (why) fail(why);
       const d = DISTRICT_BY_ID[a.district];
-      pay(s, p, landPrice(s, p, a.district));
+      pay(s, p, landPrice(s, p, a.district), { at: a.district });
       s.owner[a.district] = pi;
       for (let i = 0; i < d.cards && s.deck.length; i++) takeFrom(s, p, "deck");
       s.log.push(`${p.name} kupuje grunt: ${d.name}.`);
@@ -309,7 +329,8 @@ export function apply(state: State, a: Action): State {
         if (st.flipped) fail(`„${d.name}” jest już zużyta.`);
         if (strikeBlocks(p, d, noStrike)) fail(`Strajk: „${d.name}” nie pracuje do końca Twojej tury.`);
         const { pay: cost, effect, flips } = d.run!;
-        if (cost.kind === "money") pay(s, p, cost.n);
+        const top = st.cards[st.cards.length - 1];
+        if (cost.kind === "money") pay(s, p, cost.n, { card: top });
         if (cost.kind === "card" || cost.kind === "culture") {
           const paid = act.pay ?? [];
           if (paid.length !== cost.n) fail(`„${d.name}” wymaga odrzucenia ${cost.n} kart.`);
@@ -321,7 +342,11 @@ export function apply(state: State, a: Action): State {
         }
         p.money += effect.money ?? 0;
         p.pp += effect.pp ?? 0;
-        p.poverty = Math.max(0, p.poverty + (effect.poverty ?? 0));
+        const pov = Math.max(0, p.poverty + (effect.poverty ?? 0));
+        fx(s, p, "money", effect.money ?? 0, { card: top });
+        fx(s, p, "pp", effect.pp ?? 0, { card: top });
+        fx(s, p, "poverty", pov - p.poverty, { card: top });
+        p.poverty = pov;
         if (effect.tracks) {
           const placed: string[] = [];
           for (const t of act.tracks ?? []) {
@@ -336,6 +361,7 @@ export function apply(state: State, a: Action): State {
       const before = p.poverty;
       const gained = p.empire.length + p.hand.length - ownedCount(s, pi);
       p.poverty = Math.max(0, p.poverty + gained);
+      fx(s, p, "poverty", p.poverty - before);
       s.log.push(`${p.name} uruchamia fabryki, Nędza ${gained >= 0 ? "+" : ""}${gained}.`);
       // a strike starts only when Nędza crosses the threshold, so a poor family is not locked out forever
       if (before < STRIKE_AT && p.poverty >= STRIKE_AT && !p.strike) {

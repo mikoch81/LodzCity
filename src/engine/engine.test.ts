@@ -49,6 +49,14 @@ describe("inwestowanie", () => {
     expect(n.market).toContain(warsztat);
   });
 
+  it("zapisuje widoczne zmiany zasobów (fx) z kartą źródłową", () => {
+    const s = setup(["geyer", "warsztat"]);
+    const [geyer, warsztat] = s.players[0].hand;
+    const n = apply(s, { t: "invest", plays: [{ card: geyer, discard: warsztat }] });
+    expect(n.fx).toEqual([{ p: 0, k: "money", n: -4, card: geyer }]);
+    expect(apply(n, { t: "draw", from: "deck" }).fx).toEqual([]);
+  });
+
   it("odrzuca kartę innego koloru", () => {
     const s = setup(["geyer", "magistrat"]);
     const [geyer, mag] = s.players[0].hand;
