@@ -17,7 +17,7 @@ function evaluate(s: State, pi: number): number {
   const p = s.players[pi];
   const left = s.deck.length / 104; // 1 at start, 0 at the end
   const all = p.empire.flatMap((st) => st.cards);
-  let v = all.reduce((n, u) => n + def(s, u).pp, 0) + p.pp + p.money / 3 - p.loans * 8;
+  let v = all.reduce((n, u) => n + def(s, u).pp, 0) + p.pp + p.money / 5 - p.loans * 8;
   for (const d of DISTRICTS) if (s.owner[d.id] === pi) v += d.pp + (s.tracks.includes(d.id) ? 2 : 0) + 1.5 * left * 4;
   for (const st of p.empire) {
     const d = def(s, st.cards[st.cards.length - 1]);
