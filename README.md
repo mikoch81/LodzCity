@@ -8,6 +8,7 @@ Gra przeglądarkowa o budowie przemysłowej Łodzi (1820–1914). Mechanika jest
 npm install
 npm run dev     # http://localhost:3000
 npm test        # testy silnika zasad
+SIM=200 npx vitest run src/engine/sim.test.ts   # symulacja balansu: 200 partii botów (LEVELS=hard,medium,easy)
 ```
 
 ## Struktura

@@ -1,9 +1,10 @@
 // Heuristic bot: builds a few candidate actions, simulates each with the real engine, keeps the best.
-// shortcut: one-ply greedy search with level-based noise, upgrade to Monte Carlo rollouts if bots feel weak in playtests.
+// Hard also plays one round ahead (rivals + its own next turn) before judging a move; more rollouts did not help in sims.
+// Weights were tuned with src/engine/sim.test.ts; re-run it after changing cards or scoring.
 import { DECK_SIZE, DISTRICTS, type CardDef } from "./data";
 import {
-  apply, canBuy, canTrack, def, GameError, hasPerm, strikeBlocks, HAND_LIMIT, landPrice, povertyPenalty, repayCost,
-  type Action, type Player, type State,
+  apply, canBuy, canTrack, def, GameError, hasPerm, strikeBlocks, HAND_LIMIT, landPrice, MONEY_PER_PP, povertyPenalty, repayCost,
+  type Action, type BotLevel, type Player, type State,
 } from "./engine";
 
 export function cardValue(d: CardDef): number {
@@ -13,19 +14,48 @@ export function cardValue(d: CardDef): number {
   return d.pp + run * (d.run?.flips ? 1 : 2.5) + (d.permanent ? 4 : 0) - d.cost * 0.25;
 }
 
-function evaluate(s: State, pi: number): number {
+export type Weights = {
+  moneyEarly: number; // value of 1 rb at the start (it buys cards and land); falls to 1/MONEY_PER_PP at the end
+  loan: number;
+  hand: number;
+  relative: boolean; // Nędza penalty against the poorest rival instead of absolute
+  landLeft: number;
+  strike: number;
+  potential: number; // value of unused factories still able to run
+};
+
+const TUNED: Weights = {
+  moneyEarly: 0.5, loan: 8, hand: 0.4, relative: true, landLeft: 12, strike: 3, potential: 1,
+};
+
+export const WEIGHTS: Record<BotLevel, Weights> = {
+  // the first, untuned evaluation: it overvalues running factories and undervalues land, a fair beginner
+  easy: { moneyEarly: 0.2, loan: 8, hand: 0.25, relative: false, landLeft: 6, strike: 3, potential: 1 },
+  medium: { ...TUNED },
+  hard: { ...TUNED },
+};
+
+// Nędza counted at the end: tokens plus cards left in hand
+const endPoverty = (p: Player) => p.poverty + p.hand.length;
+
+function evaluate(s: State, pi: number, w: Weights): number {
   const p = s.players[pi];
   const left = s.deck.length / DECK_SIZE; // 1 at start, 0 at the end
   const all = p.empire.flatMap((st) => st.cards);
-  let v = all.reduce((n, u) => n + def(s, u).pp, 0) + p.pp + p.money / 5 - p.loans * 8;
-  for (const d of DISTRICTS) if (s.owner[d.id] === pi) v += d.pp + (s.tracks.includes(d.id) ? 2 : 0) + 1.5 * left * 4;
+  const moneyW = 1 / MONEY_PER_PP + (w.moneyEarly - 1 / MONEY_PER_PP) * left;
+  let v = all.reduce((n, u) => n + def(s, u).pp, 0) + p.pp + p.money * moneyW - p.loans * w.loan;
+  for (const d of DISTRICTS) if (s.owner[d.id] === pi) v += d.pp + (s.tracks.includes(d.id) ? 2 : 0) + left * w.landLeft;
   for (const st of p.empire) {
     const d = def(s, st.cards[st.cards.length - 1]);
-    if (d.run && !st.flipped) v += (cardValue(d) - d.pp) * (0.4 + left);
+    if (d.run && !st.flipped) v += (cardValue(d) - d.pp) * (0.4 + left) * w.potential;
   }
-  v += p.hand.reduce((n, u) => n + Math.max(0, cardValue(def(s, u))) * 0.25 * left, 0);
-  v -= povertyPenalty(p.poverty + p.hand.length * (1 - left));
-  if (p.strike) v -= 3;
+  v += p.hand.reduce((n, u) => n + Math.max(0, cardValue(def(s, u))) * w.hand * left, 0);
+  if (w.relative) {
+    const mine = endPoverty(p);
+    const least = Math.min(mine, ...s.players.filter((q) => q !== p).map((q) => endPoverty(q)));
+    v -= povertyPenalty(mine - least);
+  } else v -= povertyPenalty(p.poverty + p.hand.length * (1 - left));
+  if (p.strike) v -= w.strike;
   return v;
 }
 
@@ -120,10 +150,9 @@ export function candidates(s: State): Action[] {
 }
 
 const NOISE = { easy: 6, medium: 1.5, hard: 0 } as const;
+export const LOOKAHEAD: Record<BotLevel, boolean> = { easy: false, medium: false, hard: true };
 
-export function botMove(s: State, rnd: () => number = Math.random): Action {
-  const pi = s.current;
-  const level = s.players[pi].bot ?? "medium";
+function greedy(s: State, pi: number, w: Weights, noise: number, rnd: () => number, ahead: boolean): Action {
   let best: Action | null = null;
   let bestV = -Infinity;
   for (const a of candidates(s)) {
@@ -134,9 +163,28 @@ export function botMove(s: State, rnd: () => number = Math.random): Action {
       if (e instanceof GameError) continue;
       throw e;
     }
-    const v = evaluate(next, pi) + rnd() * NOISE[level];
+    let v = rnd() * noise;
+    if (!ahead) v += evaluate(next, pi, w);
+    else v += evaluate(playOn(next, pi, rnd), pi, w);
     if (v > bestV) [best, bestV] = [a, v];
   }
   if (!best) throw new Error("Bot nie znalazł ruchu.");
   return best;
+}
+
+// Plays the rivals' turns and the bot's own next turn with the plain greedy policy, so a move is judged by
+// what it leads to a round later. The deck is shuffled first: the bot must not see the real order of cards.
+function playOn(s: State, pi: number, rnd: () => number): State {
+  s = { ...s, deck: [...s.deck].sort(() => rnd() - 0.5), log: [] };
+  const step = () => (s = apply(s, greedy(s, s.current, WEIGHTS[s.players[s.current].bot ?? "medium"], 0, rnd, false)));
+  while (s.phase !== "over" && s.current === pi) step(); // finish this turn (discard)
+  while (s.phase !== "over" && s.current !== pi) step(); // rivals
+  while (s.phase !== "over" && s.current === pi) step(); // own next turn
+  return s;
+}
+
+export function botMove(s: State, rnd: () => number = Math.random): Action {
+  const level = s.players[s.current].bot ?? "medium";
+  const ahead = LOOKAHEAD[level] && s.phase === "action";
+  return greedy(s, s.current, WEIGHTS[level], NOISE[level], rnd, ahead);
 }
