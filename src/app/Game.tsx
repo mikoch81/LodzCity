@@ -10,6 +10,8 @@ import {
 import { ART } from "./art";
 import { Count, useAnimPref, useFxPlayer } from "./Fx";
 import css from "./Game.module.css";
+import { MAP_STYLES, Terrain, type MapStyle } from "./Terrain";
+import tcss from "./Terrain.module.css";
 
 const COLOR_NAME: Record<Color, string> = { przemysl: "Przemysł", wladza: "Władza", kultura: "Kultura", nedza: "Nędza" };
 const PLAYER_COLORS = ["#d9a441", "#7fb2d9", "#c97a9a", "#8fc28a"];
@@ -128,6 +130,13 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
   const zoom = usePanZoom();
   const [anim, setAnim] = useAnimPref();
   useFxPlayer(s, anim);
+  const [mapStyle, setMapStyle] = useState<MapStyle>("sepia");
+  useEffect(() => {
+    try {
+      const m = localStorage.getItem("fabrykant:map") as MapStyle | null;
+      if (m && MAP_STYLES.some((x) => x.id === m)) setMapStyle(m);
+    } catch {}
+  }, []);
   const [error, setError] = useState("");
   // invest
   const [plays, setPlays] = useState<{ card: number; discard?: number; onto?: number }[]>([]);
@@ -248,6 +257,19 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
           <button type="button" className={css.link} onClick={() => setAnim(!anim)} aria-pressed={anim}>
             Animacje: {anim ? "wł." : "wył."}
           </button>
+          {" · "}
+          <label>
+            Mapa:{" "}
+            <select className={css.link} value={mapStyle} onChange={(e) => {
+              const m = e.target.value as MapStyle;
+              setMapStyle(m);
+              try {
+                localStorage.setItem("fabrykant:map", m);
+              } catch {}
+            }}>
+              {MAP_STYLES.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          </label>
         </span>
       </header>
 
@@ -268,9 +290,10 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
         <div className={css.boardWrap}>
         {zoom.zoomed && <button type="button" className={css.unzoom} onClick={zoom.reset}>Cały plan</button>}
         <svg
-          viewBox={zoom.viewBox} className={css.board} role="img" aria-label="Plan Łodzi"
+          viewBox={zoom.viewBox} className={`${css.board} ${tcss[`bg_${mapStyle}`]}`} role="img" aria-label="Plan Łodzi"
           style={{ touchAction: zoom.zoomed ? "none" : "pan-y" }} {...zoom.handlers}
         >
+          <Terrain style={mapStyle} />
           {DISTRICTS.flatMap((d) =>
             ADJ[d.id].filter((n) => n > d.id).map((n) => {
               const o = DISTRICTS.find((x) => x.id === n)!;
