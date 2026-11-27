@@ -11,7 +11,6 @@ import css from "./Game.module.css";
 
 const COLOR_NAME: Record<Color, string> = { przemysl: "Przemysł", wladza: "Władza", kultura: "Kultura", nedza: "Nędza" };
 const PLAYER_COLORS = ["#d9a441", "#7fb2d9", "#c97a9a", "#8fc28a"];
-const ME = 0;
 
 function runText(d: CardDef): string {
   if (d.event) return "Zdarzenie: strajkują rody z 8+ Nędzy";
@@ -61,8 +60,14 @@ function Card({ d, selected, dim, onClick, small }: { d: CardDef; selected?: boo
 
 type Mode = "none" | "invest" | "take3" | "run" | "buy";
 
-export default function Game() {
-  const [s, setS] = useState<State | null>(null);
+type BoardProps = {
+  s: State;
+  seat: number;
+  onAction: (a: Action) => Promise<string | null> | string | null; // returns an error message or null
+  onExit: () => void;
+};
+
+export function Board({ s, seat, onAction, onExit }: BoardProps) {
   const [mode, setMode] = useState<Mode>("none");
   const [error, setError] = useState("");
   // invest
@@ -86,31 +91,17 @@ export default function Game() {
     setToDiscard([]);
   };
 
-  const act = (a: Action) => {
-    if (!s) return;
-    try {
-      setS(apply(s, a));
-      setError("");
-      reset();
-    } catch (e) {
-      if (e instanceof GameError) setError(e.message);
-      else throw e;
-    }
+  const act = async (a: Action) => {
+    const err = await onAction(a);
+    if (err) return setError(err);
+    setError("");
+    reset();
   };
-
-  // bots play on their own, with a short pause so moves are readable
-  useEffect(() => {
-    if (!s || s.phase === "over" || !s.players[s.current].bot) return;
-    const t = setTimeout(() => setS(apply(s, botMove(s))), 650);
-    return () => clearTimeout(t);
-  }, [s]);
 
   const placedTracks = useMemo(() => Object.values(acts).flat(), [acts]);
 
-  if (!s) return <Setup onStart={(players) => setS(newGame(players))} />;
-
-  const me = s.players[ME];
-  const myTurn = s.current === ME && s.phase !== "over";
+  const me = s.players[seat];
+  const myTurn = s.current === seat && s.phase !== "over";
   const usedInPlays = new Set(plays.flatMap((p) => [p.card, p.discard ?? -1]));
 
   function clickHand(uid: number) {
@@ -221,7 +212,7 @@ export default function Game() {
           )}
           {DISTRICTS.map((d) => {
             const owner = s.owner[d.id];
-            const buyable = myTurn && s.phase === "action" && mode === "buy" && !canBuy(s, ME, d.id);
+            const buyable = myTurn && s.phase === "action" && mode === "buy" && !canBuy(s, seat, d.id);
             const trackable = mode === "run" && trackStack != null && canTrack(s, d.id, placedTracks);
             const chosen = placedTracks.includes(d.id);
             return (
@@ -280,7 +271,7 @@ export default function Game() {
                     ))}
                   </tbody>
                 </table>
-                <button type="button" onClick={() => { setS(null); reset(); }}>Nowa gra</button>
+                <button type="button" onClick={onExit}>Nowa gra</button>
               </>
             ) : !myTurn ? (
               <p>Ruch: {s.players[s.current].name}…</p>
@@ -385,7 +376,7 @@ export default function Game() {
       </section>
 
       <section className={css.others}>
-        {s.players.map((p, i) => i !== ME && (
+        {s.players.map((p, i) => i !== seat && (
           <div key={i}>
             <h3 style={{ color: PLAYER_COLORS[i] }}>Imperium: {p.name}</h3>
             <div className={css.row}>
@@ -402,6 +393,57 @@ export default function Game() {
         </ol>
       </section>
     </main>
+  );
+}
+
+/** Solo game against bots, played entirely in the browser. */
+export default function Game() {
+  const [s, setS] = useState<State | null>(null);
+
+  // bots play on their own, with a short pause so moves are readable
+  useEffect(() => {
+    if (!s || s.phase === "over" || !s.players[s.current].bot) return;
+    const t = setTimeout(() => setS(apply(s, botMove(s))), 650);
+    return () => clearTimeout(t);
+  }, [s]);
+
+  if (!s) return <Setup onStart={(players) => setS(newGame(players))} />;
+  return (
+    <Board
+      s={s} seat={0} onExit={() => setS(null)}
+      onAction={(a) => {
+        try {
+          setS(apply(s, a));
+          return null;
+        } catch (e) {
+          if (e instanceof GameError) return e.message;
+          throw e;
+        }
+      }}
+    />
+  );
+}
+
+function OnlineStart({ name }: { name: string }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  async function create() {
+    setBusy(true);
+    const r = await fetch("/api/games", { method: "POST", body: JSON.stringify({ name }) });
+    const j = await r.json();
+    if (!r.ok) {
+      setBusy(false);
+      return setErr(j.error);
+    }
+    localStorage.setItem(`fabrykant:${j.id}`, j.token);
+    location.href = `/gra/${j.id}`;
+  }
+  return (
+    <>
+      <button type="button" onClick={create} disabled={busy}>Załóż grę online</button>
+      <p className={css.muted}>Dostaniesz link do pokoju, który wyślesz znajomym (2–4 graczy, wolne miejsca mogą zająć boty).</p>
+      {err && <p className={css.error} role="alert">{err}</p>}
+    </>
   );
 }
 
@@ -432,7 +474,7 @@ function Setup({ onStart }: { onStart: (p: { name: string; bot?: BotLevel }[]) =
       <button type="button" onClick={() => onStart([{ name: name.trim() || "Ty" }, ...botNames.slice(0, bots).map((n) => ({ name: n, bot: level }))])}>
         Graj solo
       </button>
-      <p className={css.muted}>Multiplayer online pojawi się w kolejnym kroku.</p>
+      <OnlineStart name={name} />
     </main>
   );
 }
