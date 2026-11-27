@@ -8,8 +8,15 @@ import { setSound, sfx } from "./sound";
 const UNIT: Record<Fx["k"], string> = { money: "rb", poverty: "Nędzy", loan: "weksel", pp: "PP" };
 const MAX_TOKENS: Record<Fx["k"], number> = { money: 8, poverty: 8, loan: 3, pp: 6 };
 
-function center(el: Element) {
+// the page is CSS-zoomed on 4K (globals.css): fixed-position tokens get zoomed too, so screen coords are divided back
+function rect(el: Element) {
+  const z = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--z")) || 1;
   const r = el.getBoundingClientRect();
+  return { left: r.left / z, top: r.top / z, width: r.width / z, height: r.height / z };
+}
+
+function center(el: Element) {
+  const r = rect(el);
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
 
@@ -106,7 +113,7 @@ function play(f: Fx, counter: Element, other: Element, delay: number, still: boo
 
 /** Factory chimney smoke rising from a card that just ran. */
 function smoke(card: Element, delay: number) {
-  const r = card.getBoundingClientRect();
+  const r = rect(card);
   for (let i = 0; i < 4; i++) {
     const p = document.createElement("div");
     p.className = css.smoke;

@@ -144,6 +144,8 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
   const [toDiscard, setToDiscard] = useState<number[]>([]);
   // side panel: an opponent's empire (seat), the log or the rules
   const [drawer, setDrawer] = useState<number | "log" | "help" | null>(null);
+  // phone portrait shows one of board / market / empire at a time (tabs at the bottom)
+  const [view, setView] = useState<"board" | "market" | "empire">("board");
 
   const reset = () => {
     setMode("none");
@@ -255,8 +257,16 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
     : { label: "Wybierz akcję" };
   const handN = me.hand.length;
 
+  // on a phone, jump to the panel the current step needs
+  const drawing = myTurn && s.phase === "draw";
+  useEffect(() => {
+    if (mode === "run") setView("empire");
+    else if (mode === "take3" || drawing) setView("market");
+    else if (mode === "buy" || mode === "none") setView("board");
+  }, [mode, drawing]);
+
   return (
-    <main className={css.table}>
+    <main className={css.table} data-view={view}>
       <header className={css.top}>
         {s.players.map((p, i) => i !== seat && (
           <button
@@ -474,6 +484,12 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
           })}
         </div>
       </section>
+
+      <nav className={css.tabs} aria-label="Widok">
+        {([["board", "Plan"], ["market", "Giełda"], ["empire", `Imperium (${me.empire.length})`]] as const).map(([k, label]) => (
+          <button key={k} type="button" aria-pressed={view === k} onClick={() => setView(k)}>{label}</button>
+        ))}
+      </nav>
 
       {drawer != null && (
         <div className={css.drawer} role="dialog" aria-label={drawer === "log" ? "Kronika" : drawer === "help" ? "Jak grać" : `Imperium: ${s.players[drawer].name}`}>

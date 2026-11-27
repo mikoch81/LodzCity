@@ -10,13 +10,19 @@
   --nedza: #5b5a57;
 }
 
+/* 4K and other very tall screens: zoom the whole page so it looks like FullHD/1440p, only sharper.
+   Viewport units don't follow zoom, so layouts divide them by --z. */
+:root { --z: 1; zoom: var(--z); }
+@media (min-height: 1500px) and (min-width: 2200px) { :root { --z: 1.5; } }
+@media (min-height: 1900px) and (min-width: 3000px) { :root { --z: 2; } }
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   background: var(--bg);
   color: var(--paper);
   font-family: var(--font-body), system-ui, sans-serif;
-  min-height: 100vh;
+  min-height: calc(100vh / var(--z));
 }
 
 h1, h2, h3 { font-family: var(--font-display), Georgia, serif; color: var(--gold); }
