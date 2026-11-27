@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from "react";
 import { botMove, cheapest } from "@/engine/ai";
 import { ADJ, DISTRICTS, type CardDef, type Color } from "@/engine/data";
 import {
@@ -67,8 +67,62 @@ type BoardProps = {
   onExit: () => void;
 };
 
+const FULL = { x: -4, y: -4, w: 108 };
+
+/** Pinch to zoom and drag to pan the map by changing the SVG viewBox. */
+function usePanZoom() {
+  const [v, setV] = useState(FULL);
+  const pts = useRef(new Map<number, { x: number; y: number }>());
+  const moved = useRef(false);
+  const zoomed = v.w < FULL.w;
+
+  const clamp = (x: number, y: number, w: number) => {
+    w = Math.min(FULL.w, Math.max(FULL.w / 4, w));
+    const max = FULL.x + FULL.w - w;
+    return { x: Math.min(max, Math.max(FULL.x, x)), y: Math.min(max, Math.max(FULL.y, y)), w };
+  };
+  const mid = () => {
+    const a = [...pts.current.values()];
+    return { x: (a[0].x + a[1].x) / 2, y: (a[0].y + a[1].y) / 2, d: Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) };
+  };
+
+  const handlers = {
+    onPointerDown(e: RPointerEvent<SVGSVGElement>) {
+      if (pts.current.size === 0) moved.current = false;
+      pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    },
+    onPointerMove(e: RPointerEvent<SVGSVGElement>) {
+      const prev = pts.current.get(e.pointerId);
+      if (!prev) return;
+      const r = e.currentTarget.getBoundingClientRect();
+      const before = pts.current.size === 2 ? mid() : null;
+      pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (before) {
+        const after = mid();
+        moved.current = true;
+        setV((o) => {
+          // keep the map point under the fingers' midpoint under the new midpoint
+          const px = o.x + ((before.x - r.left) * o.w) / r.width, py = o.y + ((before.y - r.top) * o.w) / r.height;
+          const w = Math.min(FULL.w, Math.max(FULL.w / 4, (o.w * before.d) / Math.max(after.d, 1)));
+          return clamp(px - ((after.x - r.left) * w) / r.width, py - ((after.y - r.top) * w) / r.height, w);
+        });
+      } else if (pts.current.size === 1 && zoomed) {
+        const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
+        if (Math.abs(dx) + Math.abs(dy) > 2) moved.current = true;
+        setV((o) => clamp(o.x - (dx * o.w) / r.width, o.y - (dy * o.w) / r.height, o.w));
+      }
+    },
+    onPointerUp(e: RPointerEvent<SVGSVGElement>) { pts.current.delete(e.pointerId); },
+    onPointerCancel(e: RPointerEvent<SVGSVGElement>) { pts.current.delete(e.pointerId); },
+    // a drag or pinch must not also buy the district under the finger
+    onClickCapture(e: React.MouseEvent) { if (moved.current) { e.stopPropagation(); moved.current = false; } },
+  };
+  return { viewBox: `${v.x} ${v.y} ${v.w} ${v.w}`, zoomed, reset: () => setV(FULL), handlers };
+}
+
 export function Board({ s, seat, onAction, onExit }: BoardProps) {
   const [mode, setMode] = useState<Mode>("none");
+  const zoom = usePanZoom();
   const [error, setError] = useState("");
   // invest
   const [plays, setPlays] = useState<{ card: number; discard?: number; onto?: number }[]>([]);
@@ -203,7 +257,11 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
 
       <div className={css.middle}>
         <div className={css.boardWrap}>
-        <svg viewBox="-4 -4 108 108" className={css.board} role="img" aria-label="Plan Łodzi">
+        {zoom.zoomed && <button type="button" className={css.unzoom} onClick={zoom.reset}>Cały plan</button>}
+        <svg
+          viewBox={zoom.viewBox} className={css.board} role="img" aria-label="Plan Łodzi"
+          style={{ touchAction: zoom.zoomed ? "none" : "pan-y" }} {...zoom.handlers}
+        >
           {DISTRICTS.flatMap((d) =>
             ADJ[d.id].filter((n) => n > d.id).map((n) => {
               const o = DISTRICTS.find((x) => x.id === n)!;

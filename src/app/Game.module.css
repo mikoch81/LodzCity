@@ -71,12 +71,12 @@
 .help p, .help ul { margin-top: 8px; }
 .help ul { padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 
-/* phone: map scrolls sideways at a readable size, market in two rows, smaller cards */
-.boardWrap { overflow-x: auto; border-radius: 12px; }
+/* phone: pinch to zoom the map (usePanZoom), market in two rows, smaller cards */
+.boardWrap { position: relative; }
+.unzoom { position: absolute; top: 8px; right: 8px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--gold); background: #2a211cdd; color: var(--paper); }
 @media (max-width: 600px) {
   .game { padding: 8px; gap: 12px; }
   .header h1 { font-size: 1.8rem; }
-  .board { min-width: 560px; }
   .market { grid-template-columns: repeat(3, 1fr) !important; }
   .card { width: 104px; min-height: 150px; }
   .cardName { font-size: 0.9rem; }
