@@ -11,7 +11,6 @@ import { ART } from "./art";
 import { Count, useAnimPref, useFxPlayer, useSoundPref } from "./Fx";
 import css from "./Game.module.css";
 import { MAP_STYLES, Terrain, type MapStyle } from "./Terrain";
-import tcss from "./Terrain.module.css";
 
 const COLOR_NAME: Record<Color, string> = { przemysl: "Przemysł", wladza: "Władza", kultura: "Kultura", nedza: "Nędza" };
 const PLAYER_COLORS = ["#d9a441", "#7fb2d9", "#c97a9a", "#8fc28a"];
@@ -131,7 +130,7 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
   const [anim, setAnim] = useAnimPref();
   const [sound, setSoundOn] = useSoundPref();
   useFxPlayer(s, anim);
-  const [mapStyle, setMapStyle] = useState<MapStyle>("sepia");
+  const [mapStyle, setMapStyle] = useState<MapStyle>("foto1");
   useEffect(() => {
     try {
       const m = localStorage.getItem("fabrykant:map") as MapStyle | null;
@@ -295,7 +294,7 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
         <div className={css.boardWrap}>
         {zoom.zoomed && <button type="button" className={css.unzoom} onClick={zoom.reset}>Cały plan</button>}
         <svg
-          viewBox={zoom.viewBox} className={`${css.board} ${tcss[`bg_${mapStyle}`]}`} role="img" aria-label="Plan Łodzi"
+          viewBox={zoom.viewBox} className={css.board} role="img" aria-label="Plan Łodzi"
           style={{ touchAction: zoom.zoomed ? "none" : "pan-y" }} {...zoom.handlers}
         >
           <Terrain style={mapStyle} />
@@ -329,7 +328,7 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
                 <title>{`${d.name}: ${landPrice(s, me, d.id)} rb, ${d.cards} karty, ${d.pp} PP${d.town ? " (miasteczko, wymaga toru)" : ""}`}</title>
                 <circle
                   cx={d.x} cy={d.y} r={d.town ? 4.2 : 3.4}
-                  fill={owner == null ? (d.town ? "#a88f66" : "#c2ab82") : PLAYER_COLORS[owner]}
+                  fill={owner == null ? (d.town ? "#1d1714a0" : "#1d171450") : PLAYER_COLORS[owner]}
                   className={chosen ? css.chosen : buyable || trackable ? css.ring : undefined}
                 />
                 {owner != null && (
@@ -337,7 +336,9 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
                   <path className={css.house} d={`M${d.x - 1.6} ${d.y + 1.4}v-2.2l1.6-1.4 1.6 1.4v2.2z`} />
                 )}
                 {s.tracks.includes(d.id) && <rect x={d.x - 1.2} y={d.y - 1.2} width={2.4} height={2.4} className={css.trackDot} />}
-                <text x={d.x} y={d.y + 6.4} className={css.label}>{d.name}</text>
+                {/* name on a translucent plate so it reads on the photo */}
+                <rect x={d.x - d.name.length * 0.62 - 0.8} y={d.y + 4.3} width={d.name.length * 1.24 + 1.6} height={3} rx={0.6} className={css.plate} />
+                <text x={d.x} y={d.y + 6.5} className={css.label}>{d.name}</text>
               </g>
             );
           })}

@@ -12,31 +12,25 @@
 .middle { display: grid; grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr); gap: 16px; }
 @media (max-width: 860px) { .middle { grid-template-columns: 1fr; } }
 
-/* old sepia city plan on a dark desk */
-.board {
-  width: 100%; border-radius: 12px; border: 2px solid var(--gold);
-  background:
-    linear-gradient(#5a40280d 1px, #0000 1px) 0 0 / 24px 24px,
-    linear-gradient(90deg, #5a40280d 1px, #0000 1px) 0 0 / 24px 24px,
-    radial-gradient(ellipse at 50% 45%, #efe2c4, #d8c39a 60%, #a88a5c);
-  box-shadow: inset 0 0 40px #5a402888, 0 6px 18px #000a;
-}
-.edge { stroke: #8a6a45; stroke-width: 0.4; stroke-dasharray: 1 0.8; }
+/* aerial photo of the city under translucent district points */
+.board { width: 100%; border-radius: 12px; border: 2px solid var(--gold); background: #2a211c; box-shadow: 0 6px 18px #000a; }
+.edge { stroke: #f2e8d5; stroke-opacity: 0.75; stroke-width: 0.35; stroke-dasharray: 1 0.8; filter: drop-shadow(0 0 0.3px #000); }
 .trackBed { stroke: #3b2a1c; stroke-width: 1.5; stroke-dasharray: 0.3 0.7; }
-.trackLine { stroke: #6e4b16; stroke-width: 0.6; stroke-dasharray: 1; animation: draw 0.9s ease-out both; }
+.trackLine { stroke: #e8c66a; stroke-width: 0.6; stroke-dasharray: 1; animation: draw 0.9s ease-out both; }
 @keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
-.district circle { stroke: #5a4028; stroke-width: 0.5; transition: fill 0.3s; }
+.district circle { stroke: #f2e8d5; stroke-width: 0.5; transition: fill 0.3s; }
 .district { outline: none; } /* browser draws a box around the whole <g>; ring below replaces it */
 .district:focus-visible circle { stroke: var(--wladza) !important; stroke-width: 1.2 !important; }
 .clickable { cursor: pointer; }
-.clickable:hover circle { stroke: var(--przemysl); stroke-width: 0.9; }
-.ring { stroke: var(--przemysl) !important; stroke-width: 0.7 !important; stroke-dasharray: 1.2 0.8; animation: march 1.2s linear infinite; }
+.clickable:hover circle { stroke: #ffd86b; stroke-width: 0.9; }
+.ring { stroke: #ffd86b !important; stroke-width: 0.7 !important; stroke-dasharray: 1.2 0.8; animation: march 1.2s linear infinite; }
 @keyframes march { to { stroke-dashoffset: -4; } }
 .chosen { stroke: var(--ink) !important; stroke-width: 1.1 !important; }
 .house { fill: var(--paper); stroke: var(--ink); stroke-width: 0.3; transform-box: fill-box; transform-origin: 50% 100%; animation: drop 0.45s cubic-bezier(.3,1.6,.5,1) both; }
 @keyframes drop { from { transform: translateY(-5px) scale(1.6); opacity: 0; } to { transform: none; opacity: 1; } }
 .trackDot { fill: #6e4b16; stroke: var(--paper); stroke-width: 0.3; }
-.label { font-size: 2.3px; fill: var(--ink); text-anchor: middle; pointer-events: none; font-family: var(--font-display), Georgia, serif; font-weight: 700; paint-order: stroke; stroke: #efe2c4; stroke-width: 0.5px; }
+.label { font-size: 2.2px; fill: #f2e8d5; text-anchor: middle; pointer-events: none; font-family: var(--font-display), Georgia, serif; font-weight: 700; }
+.plate { fill: #1d1714; fill-opacity: 0.62; stroke: var(--gold); stroke-width: 0.15; pointer-events: none; }
 
 .side { display: flex; flex-direction: column; gap: 10px; }
 .market { display: grid; gap: 6px; }
