@@ -7,6 +7,8 @@ import {
   apply, canBuy, canTrack, def, GameError, HAND_LIMIT, hasPerm, landPrice, LOAN, newGame, ranking, repayCost, score, strikeBlocks,
   type Action, type BotLevel, type State,
 } from "@/engine/engine";
+import { ART } from "./art";
+import { Count, useAnimPref, useFxPlayer } from "./Fx";
 import css from "./Game.module.css";
 
 const COLOR_NAME: Record<Color, string> = { przemysl: "Przemysł", wladza: "Władza", kultura: "Kultura", nedza: "Nędza" };
@@ -34,19 +36,20 @@ function runText(d: CardDef): string {
   return `${cost} → ${eff}${flips ? " (zużywa się)" : ""}`;
 }
 
-function Card({ d, selected, dim, onClick, small }: { d: CardDef; selected?: boolean; dim?: boolean; onClick?: () => void; small?: boolean }) {
+function Card({ d, uid, selected, dim, onClick, small }: { d: CardDef; uid?: number; selected?: boolean; dim?: boolean; onClick?: () => void; small?: boolean }) {
   return (
     <button
       type="button"
+      data-uid={uid}
       className={`${css.card} ${small ? css.small : ""} ${selected ? css.selected : ""} ${dim ? css.dim : ""}`}
       style={{ "--c": `var(--${d.color})` } as React.CSSProperties}
       onClick={onClick}
       disabled={!onClick}
       title={`${d.name}: ${runText(d)}${d.about ? `\n\n${d.about}` : ""}`}
     >
-      <span className={css.cardTop}>
-        <span>{"I".repeat(d.era)}</span>
-        {d.color !== "nedza" && <span>{d.cost} rb</span>}
+      <span className={css.art} style={ART.has(d.id) ? { backgroundImage: `url(/cards/${d.id}.webp)` } : undefined}>
+        <span className={css.era}>{"I".repeat(d.era)}</span>
+        {d.color !== "nedza" && <span className={css.cost}>{d.cost}</span>}
       </span>
       <span className={css.cardName}>{d.name}</span>
       {!small && <span className={css.cardText}>{runText(d)}</span>}
@@ -123,6 +126,8 @@ function usePanZoom() {
 export function Board({ s, seat, onAction, onExit }: BoardProps) {
   const [mode, setMode] = useState<Mode>("none");
   const zoom = usePanZoom();
+  const [anim, setAnim] = useAnimPref();
+  useFxPlayer(s, anim);
   const [error, setError] = useState("");
   // invest
   const [plays, setPlays] = useState<{ card: number; discard?: number; onto?: number }[]>([]);
@@ -239,6 +244,10 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
         <span>
           Runda {Math.ceil(s.turnNo / s.players.length)} · talia: {s.deck.length} kart
           {s.finalTurns !== null && " · ostatnia kolejka!"}
+          {" · "}
+          <button type="button" className={css.link} onClick={() => setAnim(!anim)} aria-pressed={anim}>
+            Animacje: {anim ? "wł." : "wył."}
+          </button>
         </span>
       </header>
 
@@ -246,10 +255,10 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
         {s.players.map((p, i) => (
           <div key={i} className={`${css.player} ${i === s.current ? css.active : ""}`} style={{ borderColor: PLAYER_COLORS[i] }}>
             <strong style={{ color: PLAYER_COLORS[i] }}>{p.name}</strong>
-            <span>{p.money} rb</span>
-            <span>Nędza {p.poverty}{p.strike ? " · STRAJK" : ""}</span>
-            <span>Weksle {p.loans}</span>
-            <span title="Wynik, gdyby gra skończyła się teraz (z karami za Nędzę i weksle)">Wynik teraz: <b>{live[i].total} PP</b></span>
+            <span data-res={`${i}-money`}><Count v={p.money} /> rb</span>
+            <span data-res={`${i}-poverty`}>Nędza <Count v={p.poverty} />{p.strike ? " · STRAJK" : ""}</span>
+            <span data-res={`${i}-loan`}>Weksle <Count v={p.loans} /></span>
+            <span title="Wynik, gdyby gra skończyła się teraz (z karami za Nędzę i weksle)">Wynik teraz: <b data-res={`${i}-pp`}><Count v={live[i].total} /> PP</b></span>
             <span>Ręka {p.hand.length}</span>
           </div>
         ))}
@@ -266,7 +275,12 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
             ADJ[d.id].filter((n) => n > d.id).map((n) => {
               const o = DISTRICTS.find((x) => x.id === n)!;
               const track = s.tracks.includes(d.id) && s.tracks.includes(n);
-              return <line key={d.id + n} x1={d.x} y1={d.y} x2={o.x} y2={o.y} className={track ? css.trackLine : css.edge} />;
+              return track ? (
+                <g key={d.id + n}>
+                  <line x1={d.x} y1={d.y} x2={o.x} y2={o.y} className={css.trackBed} />
+                  <line x1={d.x} y1={d.y} x2={o.x} y2={o.y} className={css.trackLine} pathLength={1} />
+                </g>
+              ) : <line key={d.id + n} x1={d.x} y1={d.y} x2={o.x} y2={o.y} className={css.edge} />;
             }),
           )}
           {DISTRICTS.map((d) => {
@@ -277,6 +291,7 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
             return (
               <g
                 key={d.id}
+                data-district={d.id}
                 className={`${css.district} ${buyable || trackable ? css.clickable : ""}`}
                 onClick={() => (buyable || trackable || chosen) && clickDistrict(d.id)}
                 role={buyable || trackable ? "button" : undefined}
@@ -286,9 +301,13 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
                 <title>{`${d.name}: ${landPrice(s, me, d.id)} rb, ${d.cards} karty, ${d.pp} PP${d.town ? " (miasteczko, wymaga toru)" : ""}`}</title>
                 <circle
                   cx={d.x} cy={d.y} r={d.town ? 4.2 : 3.4}
-                  fill={owner == null ? (d.town ? "#3a3029" : "#4a3c33") : PLAYER_COLORS[owner]}
+                  fill={owner == null ? (d.town ? "#a88f66" : "#c2ab82") : PLAYER_COLORS[owner]}
                   className={chosen ? css.chosen : buyable || trackable ? css.ring : undefined}
                 />
+                {owner != null && (
+                  // a family's tenement drops onto bought land
+                  <path className={css.house} d={`M${d.x - 1.6} ${d.y + 1.4}v-2.2l1.6-1.4 1.6 1.4v2.2z`} />
+                )}
                 {s.tracks.includes(d.id) && <rect x={d.x - 1.2} y={d.y - 1.2} width={2.4} height={2.4} className={css.trackDot} />}
                 <text x={d.x} y={d.y + 6.4} className={css.label}>{d.name}</text>
               </g>
@@ -303,13 +322,13 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
             {s.market.map((m, i) => {
               const canTake = myTurn && (s.phase === "draw" || (mode === "take3" && !sources.includes(i) && sources.length < 3));
               return m == null ? <div key={i} className={css.slot} /> : (
-                <Card key={i} d={def(s, m)} small selected={sources.includes(i)}
+                <Card key={i} d={def(s, m)} uid={m} small selected={sources.includes(i)}
                   onClick={canTake ? () => (s.phase === "draw" ? act({ t: "draw", from: i }) : setSources([...sources, i])) : undefined} />
               );
             })}
           </div>
           <button
-            type="button" className={css.deck}
+            type="button" className={css.deck} data-bank
             disabled={!myTurn || !s.deck.length || !(s.phase === "draw" || (mode === "take3" && sources.length < 3 && sources.filter((x) => x === "deck").length < s.deck.length))}
             onClick={() => (s.phase === "draw" ? act({ t: "draw", from: "deck" }) : setSources([...sources, "deck"]))}
           >
@@ -416,7 +435,7 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
             const clickable = myTurn && ((mode === "run" && d.run && !st.flipped && !blocked) || (mode === "invest" && plays.length > 0 && st.placedTurn !== s.turnNo));
             return (
               <div key={i} className={css.stack}>
-                <Card d={d} dim={st.flipped} selected={i in acts || plays.at(-1)?.onto === i} onClick={clickable ? () => clickStack(i) : undefined} />
+                <Card d={d} uid={st.cards.at(-1)} dim={st.flipped} selected={i in acts || plays.at(-1)?.onto === i} onClick={clickable ? () => clickStack(i) : undefined} />
                 {st.cards.length > 1 && <span className={css.muted}>stos: {st.cards.length}</span>}
                 {blocked && <span className={css.error}>strajk</span>}
               </div>
@@ -429,7 +448,7 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
         <h2>Ręka ({me.hand.length}/{HAND_LIMIT})</h2>
         <div className={css.row}>
           {me.hand.map((u) => (
-            <Card key={u} d={def(s, u)} selected={u === pick || toDiscard.includes(u)} dim={usedInPlays.has(u)}
+            <Card key={u} d={def(s, u)} uid={u} selected={u === pick || toDiscard.includes(u)} dim={usedInPlays.has(u)}
               onClick={myTurn && (mode === "invest" || s.phase === "discard") ? () => clickHand(u) : undefined} />
           ))}
         </div>
@@ -440,7 +459,7 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
           <div key={i}>
             <h3 style={{ color: PLAYER_COLORS[i] }}>Imperium: {p.name}</h3>
             <div className={css.row}>
-              {p.empire.map((st, k) => <Card key={k} d={def(s, st.cards.at(-1)!)} small dim={st.flipped} />)}
+              {p.empire.map((st, k) => <Card key={k} d={def(s, st.cards.at(-1)!)} uid={st.cards.at(-1)} small dim={st.flipped} />)}
             </div>
           </div>
         ))}
@@ -463,7 +482,7 @@ export default function Game() {
   // bots play on their own, with a short pause so moves are readable
   useEffect(() => {
     if (!s || s.phase === "over" || !s.players[s.current].bot) return;
-    const t = setTimeout(() => setS(apply(s, botMove(s))), 650);
+    const t = setTimeout(() => setS(apply(s, botMove(s))), 1200);
     return () => clearTimeout(t);
   }, [s]);
 
