@@ -202,6 +202,7 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
       </section>
 
       <div className={css.middle}>
+        <div className={css.boardWrap}>
         <svg viewBox="-4 -4 108 108" className={css.board} role="img" aria-label="Plan Łodzi">
           {DISTRICTS.flatMap((d) =>
             ADJ[d.id].filter((n) => n > d.id).map((n) => {
@@ -236,6 +237,7 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
             );
           })}
         </svg>
+        </div>
 
         <div className={css.side}>
           <h2>Giełda</h2>
