@@ -20,9 +20,13 @@ function setup(hand: string[], patch: (s: State) => void = () => {}): State {
 }
 
 describe("talia", () => {
-  it("ma 104 karty w podziale 28/44/32", () => {
+  it("ma 132 karty w podziale 36/56/40", () => {
     const count = (era: number) => CARDS.filter((c) => c.era === era).reduce((n, c) => n + c.copies, 0);
-    expect([count(1), count(2), count(3)]).toEqual([28, 44, 32]);
+    expect([count(1), count(2), count(3)]).toEqual([36, 56, 40]);
+  });
+
+  it("każda karta ma notkę historyczną", () => {
+    expect(CARDS.filter((c) => !c.about).map((c) => c.id)).toEqual([]);
   });
 
   it("rozdaje po 6 kart z Epoki I", () => {
@@ -31,7 +35,7 @@ describe("talia", () => {
       expect(p.hand).toHaveLength(6);
       expect(p.hand.every((u) => def(s, u).era === 1)).toBe(true);
     }
-    expect(s.deck.length).toBe(104 - 12);
+    expect(s.deck.length).toBe(132 - 12);
   });
 });
 

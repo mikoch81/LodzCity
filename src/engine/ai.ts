@@ -1,6 +1,6 @@
 // Heuristic bot: builds a few candidate actions, simulates each with the real engine, keeps the best.
 // shortcut: one-ply greedy search with level-based noise, upgrade to Monte Carlo rollouts if bots feel weak in playtests.
-import { DISTRICTS, type CardDef } from "./data";
+import { DECK_SIZE, DISTRICTS, type CardDef } from "./data";
 import {
   apply, canBuy, canTrack, def, GameError, hasPerm, strikeBlocks, HAND_LIMIT, landPrice, povertyPenalty, repayCost,
   type Action, type Player, type State,
@@ -15,7 +15,7 @@ export function cardValue(d: CardDef): number {
 
 function evaluate(s: State, pi: number): number {
   const p = s.players[pi];
-  const left = s.deck.length / 104; // 1 at start, 0 at the end
+  const left = s.deck.length / DECK_SIZE; // 1 at start, 0 at the end
   const all = p.empire.flatMap((st) => st.cards);
   let v = all.reduce((n, u) => n + def(s, u).pp, 0) + p.pp + p.money / 5 - p.loans * 8;
   for (const d of DISTRICTS) if (s.owner[d.id] === pi) v += d.pp + (s.tracks.includes(d.id) ? 2 : 0) + 1.5 * left * 4;

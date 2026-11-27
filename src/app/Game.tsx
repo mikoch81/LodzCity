@@ -42,7 +42,7 @@ function Card({ d, selected, dim, onClick, small }: { d: CardDef; selected?: boo
       style={{ "--c": `var(--${d.color})` } as React.CSSProperties}
       onClick={onClick}
       disabled={!onClick}
-      title={`${d.name}: ${runText(d)}`}
+      title={`${d.name}: ${runText(d)}${d.about ? `\n\n${d.about}` : ""}`}
     >
       <span className={css.cardTop}>
         <span>{"I".repeat(d.era)}</span>
