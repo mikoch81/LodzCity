@@ -41,3 +41,6 @@ for d in D:
     d['cx'],d['cy']=round(cx,2),round(cy,2)
 json.dump(dict(districts=D,edges=edges),open('/tmp/claude-0/geo/geo.json','w'),ensure_ascii=False)
 print(len(D),len(edges))
+
+# Emit for the game: src/app/boardGeo.ts (polygons) and new x/y in src/engine/data.ts were written from geo.json
+# with a one-off script; re-run this file and redo that step if the district points change.

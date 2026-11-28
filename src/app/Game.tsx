@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from "react";
 import { botMove, cheapest } from "@/engine/ai";
-import { ADJ, DISTRICTS, type CardDef, type Color } from "@/engine/data";
+import { ADJ, DISTRICTS, DISTRICT_BY_ID, type CardDef, type Color } from "@/engine/data";
 import {
   apply, canBuy, canTrack, def, GameError, HAND_LIMIT, hasPerm, landPrice, LOAN, newGame, ranking, repayCost, score, strikeBlocks,
   type Action, type BotLevel, type State,
@@ -12,6 +12,7 @@ import { Count, useAnimPref, useFxPlayer, useSoundPref } from "./Fx";
 import css from "./Game.module.css";
 import fx from "./Fx.module.css";
 import { Terrain } from "./Terrain";
+import { BOARD, CELLS } from "./boardGeo";
 
 const COLOR_NAME: Record<Color, string> = { przemysl: "Przemysł", wladza: "Władza", kultura: "Kultura", nedza: "Nędza" };
 const PLAYER_COLORS = ["#d9a441", "#7fb2d9", "#c97a9a", "#8fc28a"];
@@ -72,7 +73,8 @@ type BoardProps = {
   onExit: () => void;
 };
 
-const FULL = { x: -4, y: -4, w: 108 };
+const FULL = { x: 0, y: 0, w: BOARD.w };
+const AR = BOARD.h / BOARD.w; // the board is 6:5, the viewBox keeps that ratio while zooming
 
 /** Pinch to zoom and drag to pan the map by changing the SVG viewBox. */
 function usePanZoom() {
@@ -83,8 +85,7 @@ function usePanZoom() {
 
   const clamp = (x: number, y: number, w: number) => {
     w = Math.min(FULL.w, Math.max(FULL.w / 4, w));
-    const max = FULL.x + FULL.w - w;
-    return { x: Math.min(max, Math.max(FULL.x, x)), y: Math.min(max, Math.max(FULL.y, y)), w };
+    return { x: Math.min(FULL.w - w, Math.max(0, x)), y: Math.min((FULL.w - w) * AR, Math.max(0, y)), w };
   };
   const mid = () => {
     const a = [...pts.current.values()];
@@ -107,14 +108,14 @@ function usePanZoom() {
         moved.current = true;
         setV((o) => {
           // keep the map point under the fingers' midpoint under the new midpoint
-          const px = o.x + ((before.x - r.left) * o.w) / r.width, py = o.y + ((before.y - r.top) * o.w) / r.height;
+          const px = o.x + ((before.x - r.left) * o.w) / r.width, py = o.y + ((before.y - r.top) * o.w * AR) / r.height;
           const w = Math.min(FULL.w, Math.max(FULL.w / 4, (o.w * before.d) / Math.max(after.d, 1)));
-          return clamp(px - ((after.x - r.left) * w) / r.width, py - ((after.y - r.top) * w) / r.height, w);
+          return clamp(px - ((after.x - r.left) * w) / r.width, py - ((after.y - r.top) * w * AR) / r.height, w);
         });
       } else if (pts.current.size === 1 && zoomed) {
         const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
         if (Math.abs(dx) + Math.abs(dy) > 2) moved.current = true;
-        setV((o) => clamp(o.x - (dx * o.w) / r.width, o.y - (dy * o.w) / r.height, o.w));
+        setV((o) => clamp(o.x - (dx * o.w) / r.width, o.y - (dy * o.w * AR) / r.height, o.w));
       }
     },
     onPointerUp(e: RPointerEvent<SVGSVGElement>) { pts.current.delete(e.pointerId); },
@@ -122,7 +123,7 @@ function usePanZoom() {
     // a drag or pinch must not also buy the district under the finger
     onClickCapture(e: React.MouseEvent) { if (moved.current) { e.stopPropagation(); moved.current = false; } },
   };
-  return { viewBox: `${v.x} ${v.y} ${v.w} ${v.w}`, zoomed, reset: () => setV(FULL), handlers };
+  return { viewBox: `${v.x} ${v.y} ${v.w} ${v.w * AR}`, zoomed, reset: () => setV(FULL), handlers };
 }
 
 export function Board({ s, seat, onAction, onExit }: BoardProps) {
@@ -330,18 +331,6 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
           style={{ touchAction: zoom.zoomed ? "none" : "pan-y" }} {...zoom.handlers}
         >
           <Terrain />
-          {DISTRICTS.flatMap((d) =>
-            ADJ[d.id].filter((n) => n > d.id).map((n) => {
-              const o = DISTRICTS.find((x) => x.id === n)!;
-              const track = s.tracks.includes(d.id) && s.tracks.includes(n);
-              return track ? (
-                <g key={d.id + n}>
-                  <line x1={d.x} y1={d.y} x2={o.x} y2={o.y} className={css.trackBed} />
-                  <line x1={d.x} y1={d.y} x2={o.x} y2={o.y} className={css.trackLine} pathLength={1} />
-                </g>
-              ) : <line key={d.id + n} x1={d.x} y1={d.y} x2={o.x} y2={o.y} className={css.edge} />;
-            }),
-          )}
           {DISTRICTS.map((d) => {
             const owner = s.owner[d.id];
             const buyable = myTurn && s.phase === "action" && mode === "buy" && !canBuy(s, seat, d.id);
@@ -352,28 +341,66 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
                 key={d.id}
                 data-district={d.id}
                 className={`${css.district} ${buyable || trackable ? css.clickable : ""}`}
+                style={owner != null ? ({ "--c": PLAYER_COLORS[owner] } as CSSProperties) : undefined}
                 onClick={() => (buyable || trackable || chosen) && clickDistrict(d.id)}
                 role={buyable || trackable ? "button" : undefined}
                 tabIndex={buyable || trackable ? 0 : undefined}
                 onKeyDown={(e) => e.key === "Enter" && clickDistrict(d.id)}
               >
                 <title>{`${d.name}: ${landPrice(s, me, d.id)} rb, ${d.cards} karty, ${d.pp} PP${d.town ? " (miasteczko, wymaga toru)" : ""}`}</title>
-                <circle
-                  cx={d.x} cy={d.y} r={d.town ? 4.2 : 3.4}
-                  fill={owner == null ? (d.town ? "#1d1714a0" : "#1d171450") : PLAYER_COLORS[owner]}
-                  className={chosen ? css.chosen : buyable || trackable ? css.ring : undefined}
+                <polygon
+                  points={CELLS[d.id].poly}
+                  className={`${css.cell} ${owner != null ? css.owned : ""} ${chosen ? css.chosen : buyable || trackable ? css.ring : ""}`}
                 />
-                {owner != null && (
-                  // a family's tenement drops onto bought land
-                  <path className={css.house} d={`M${d.x - 1.6} ${d.y + 1.4}v-2.2l1.6-1.4 1.6 1.4v2.2z`} />
-                )}
-                {s.tracks.includes(d.id) && <rect x={d.x - 1.2} y={d.y - 1.2} width={2.4} height={2.4} className={css.trackDot} />}
-                {/* name on a translucent plate so it reads on the photo */}
-                <rect x={d.x - d.name.length * 0.62 - 0.8} y={d.y + 4.3} width={d.name.length * 1.24 + 1.6} height={3} rx={0.6} className={css.plate} />
-                <text x={d.x} y={d.y + 6.5} className={css.label}>{d.name}</text>
               </g>
             );
           })}
+          {/* adjacency only matters while laying track */}
+          {mode === "run" && trackStack != null && DISTRICTS.flatMap((d) =>
+            ADJ[d.id].filter((n) => n > d.id).map((n) => {
+              const o = DISTRICT_BY_ID[n];
+              return <line key={d.id + n} x1={d.x} y1={d.y} x2={o.x} y2={o.y} className={css.edge} />;
+            }),
+          )}
+          {DISTRICTS.flatMap((d) => ADJ[d.id].filter((n) => n > d.id && s.tracks.includes(d.id) && s.tracks.includes(n)).map((n) => [d, DISTRICT_BY_ID[n]] as const))
+            .map(([d, o], i) => {
+              const path = `M${d.x} ${d.y}Q${(d.x + o.x) / 2 + (o.y - d.y) * 0.12} ${(d.y + o.y) / 2 - (o.x - d.x) * 0.12} ${o.x} ${o.y}`;
+              return (
+                <g key={d.id + o.id} pointerEvents="none">
+                  <path d={path} className={css.trackBed} pathLength={1} />
+                  <path d={path} className={css.trackTies} />
+                  {/* every third line gets a tram running back and forth */}
+                  {anim && i % 3 === 0 && (
+                    <image href="/board/b/tram.webp" x={-2.5} y={-4} width={5} height={5}>
+                      <animateMotion dur={`${7 + (i % 4)}s`} repeatCount="indefinite" path={path} keyPoints="0;1;0" keyTimes="0;0.5;1" calcMode="linear" />
+                    </image>
+                  )}
+                </g>
+              );
+            })}
+          {DISTRICTS.map((d) => {
+            const owner = s.owner[d.id];
+            const size = d.town ? 9 : 10;
+            return (
+              <g key={d.id} pointerEvents="none">
+                {owner != null && (
+                  // the district's landmark rises when it is bought
+                  <g key={owner} className={css.rise}>
+                    <image href={`/board/b/${d.id}.webp`} x={d.x - size / 2} y={d.y - size + 1.5} width={size} height={size} preserveAspectRatio="xMidYMax meet" />
+                    <circle cx={d.x + size / 2 - 1.2} cy={d.y - size + 3} r={1.1} fill={PLAYER_COLORS[owner]} className={css.flag} />
+                  </g>
+                )}
+                {s.tracks.includes(d.id) && <circle cx={d.x} cy={d.y} r={0.9} className={css.trackDot} />}
+              </g>
+            );
+          })}
+          {/* names last, so no building hides them */}
+          {DISTRICTS.map((d) => (
+            <g key={d.id} pointerEvents="none">
+              <rect x={d.x - d.name.length * 0.62 - 0.8} y={d.y + 2.6} width={d.name.length * 1.24 + 1.6} height={3} rx={0.6} className={css.plate} />
+              <text x={d.x} y={d.y + 4.8} className={css.label}>{d.name}</text>
+            </g>
+          ))}
         </svg>
         </div>
       </div>

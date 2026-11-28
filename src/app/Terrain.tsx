@@ -1,16 +1,5 @@
-// Photographic map under the district points: aerial view of the industrial city at golden hour (Higgsfield).
+// Painted topographic plan under the districts (Higgsfield, generated from the layout guide in design/board,
+// so forests, parks, rivers and railways sit where the district borders expect them).
 export function Terrain() {
-  return (
-    <g aria-hidden="true" pointerEvents="none">
-      <image href="/board/lodz.webp" x={-4} y={-4} width={108} height={108} preserveAspectRatio="xMidYMid slice" />
-      {/* soft vignette so points and labels stay readable on a busy photo */}
-      <defs>
-        <radialGradient id="vignette">
-          <stop offset="55%" stopColor="#000" stopOpacity="0" />
-          <stop offset="100%" stopColor="#000" stopOpacity="0.45" />
-        </radialGradient>
-      </defs>
-      <rect x={-4} y={-4} width={108} height={108} fill="url(#vignette)" />
-    </g>
-  );
+  return <image href="/board/plan.webp" x={0} y={0} width={120} height={100} preserveAspectRatio="none" aria-hidden="true" pointerEvents="none" />;
 }
