@@ -74,7 +74,9 @@ type BoardProps = {
 };
 
 const FULL = { x: 0, y: 0, w: BOARD.w };
-const AR = BOARD.h / BOARD.w; // the board is 6:5, the viewBox keeps that ratio while zooming
+const AR = BOARD.h / BOARD.w;
+const DECO_AT = [[-7.5, 1], [7.5, 1], [-7.5, -4], [7.5, -4]]; // spots around a district point for investment figures
+ // the board is 6:5, the viewBox keeps that ratio while zooming
 
 /** Pinch to zoom and drag to pan the map by changing the SVG viewBox. */
 function usePanZoom() {
@@ -169,6 +171,14 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
 
   const me = s.players[seat];
   const myTurn = s.current === seat && s.phase !== "over";
+  const deco: Record<string, Color[]> = {};
+  s.players.forEach((p, pi) => {
+    const mine = DISTRICTS.filter((d) => s.owner[d.id] === pi);
+    p.empire.forEach((st, i) => {
+      const c = def(s, st.cards.at(-1)!).color;
+      if (mine.length && c !== "nedza") (deco[mine[i % mine.length].id] ??= []).push(c);
+    });
+  });
   const usedInPlays = new Set(plays.flatMap((p) => [p.card, p.discard ?? -1]));
 
   function clickHand(uid: number) {
@@ -383,6 +393,10 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
             const size = d.town ? 9 : 10;
             return (
               <g key={d.id} pointerEvents="none">
+                {/* decoration only: each investment shows as a small figure in one of its owner's districts */}
+                {deco[d.id]?.slice(0, DECO_AT.length).map((c, k) => (
+                  <image key={k + c} href={`/board/b/${c}.webp`} x={d.x + DECO_AT[k][0] - 2.75} y={d.y + DECO_AT[k][1] - 5.5} width={5.5} height={5.5} className={css.rise} />
+                ))}
                 {owner != null && (
                   // the district's landmark rises when it is bought
                   <g key={owner} className={css.rise}>
