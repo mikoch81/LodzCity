@@ -79,6 +79,11 @@
 .empire { flex: 1; min-height: 0; padding: 26px 8px 8px; overflow-y: auto; scrollbar-width: thin; }
 .stacks { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(92px * var(--s)), 1fr)); gap: 10px 8px; }
 .stack { position: relative; display: flex; flex-direction: column; }
+/* every empire card the same size: fill the grid cell, name always two lines, foot on one line */
+.stack > .card { flex: 1; }
+.stack .cardName { height: calc(2.1em + 2px); overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.stack .cardFoot { margin-top: auto; height: 19px; white-space: nowrap; gap: 3px; font-size: 0.56rem; letter-spacing: 0.01em; }
+.stack .pp { font-size: 0.66rem; }
 .count { position: absolute; right: 4px; top: 40%; background: var(--ink); color: var(--gold); border: 1px solid var(--gold-dim); font-size: 0.7rem; font-weight: 700; padding: 0 6px; border-radius: 8px; }
 .blocked { position: absolute; left: 50%; top: 30%; translate: -50% 0; rotate: -8deg; background: var(--przemysl); color: var(--paper); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 1px 8px; border: 1px solid var(--paper); }
 .lastLog { margin: 0; padding: 8px 12px; font-size: 0.8rem; color: #cbbba8; line-height: 1.35; max-height: 4.2em; overflow: hidden; }
