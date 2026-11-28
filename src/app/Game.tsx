@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from "react";
 import { botMove, cheapest } from "@/engine/ai";
-import { ADJ, CARDS, DISTRICTS, DISTRICT_BY_ID, type CardDef, type Color } from "@/engine/data";
+import { ADJ, CARDS, DISTRICTS, DISTRICT_BY_ID, type CardDef, type Color, type Permanent } from "@/engine/data";
 import {
-  apply, canBuy, canTrack, def, GameError, HAND_LIMIT, hasPerm, landPrice, LOAN, newGame, ranking, repayCost, score, strikeBlocks,
-  type Action, type BotLevel, type State,
+  apply, canBuy, canTrack, def, GameError, HAND_LIMIT, hasPerm, landPrice, LOAN, MONEY_PER_PP, newGame, ownedCount, povertyPenalty, ranking, repayCost, score,
+  STRIKE_AT, strikeBlocks, type Action, type BotLevel, type Score, type State,
 } from "@/engine/engine";
 import { ART } from "./art";
 import { Count, useAnimPref, useFxPlayer, useSoundPref } from "./Fx";
@@ -17,34 +17,75 @@ import { BOARD, CELLS } from "./boardGeo";
 const COLOR_NAME: Record<Color, string> = { przemysl: "Przemysł", wladza: "Władza", kultura: "Kultura", nedza: "Nędza" };
 const PLAYER_COLORS = ["#d9a441", "#7fb2d9", "#c97a9a", "#8fc28a"];
 
+// [full text on a big card / tooltip, short label on a small card]
+const PERM: Record<Permanent, [string, string]> = {
+  landDiscount: ["grunty tańsze o 1 rb", "grunt −1 rb"],
+  loanRepay12: ["spłata weksla 12 rb", "weksel 12 rb"],
+  ppPerIndustry: ["+1 PP za każdą kartę Przemysłu", "+1 PP / Przemysł"],
+  noStrike: ["Twój Przemysł nie strajkuje", "bez strajku"],
+};
+const minus = (n: number) => `${n}`.replace("-", "−");
+
+/** Plain words for the tooltip; the card face shows the same as icons (Effect). */
 function runText(d: CardDef): string {
   if (d.event) return "Zdarzenie: strajkują rody z 8+ Nędzy";
-  if (d.permanent) {
-    return {
-      landDiscount: "Stale: grunty tańsze o 1 rb",
-      loanRepay12: "Stale: spłata weksla 12 rb",
-      ppPerIndustry: "Stale: +1 PP za każdą kartę Przemysłu",
-      noStrike: "Stale: Twój Przemysł nie strajkuje",
-    }[d.permanent] + (d.run ? " · " : "");
-  }
-  if (!d.run) return d.color === "nedza" ? "Martwa karta" : "";
+  const perm = d.permanent ? `Stale: ${PERM[d.permanent][0]}` : "";
+  if (!d.run) return perm || (d.color === "nedza" ? "Martwa karta: nic nie daje, a w ręce dokłada Nędzy" : "");
   const { pay, effect, flips } = d.run;
-  const cost = pay.kind === "money" ? `${pay.n} rb` : pay.kind === "culture" ? `${pay.n} karta Kultury` : pay.kind === "card" ? `${pay.n} karta` : "";
+  const kart = (n: number) => `${n} ${n === 1 ? "kartę" : "karty"}`;
+  const cost = pay.kind === "money" ? `${pay.n} rb` : pay.kind === "culture" ? `${kart(pay.n)} Kultury z ręki` : pay.kind === "card" ? `${kart(pay.n)} z ręki` : "nic";
   const eff = [
     effect.money && `+${effect.money} rb`,
     effect.pp && `+${effect.pp} PP`,
-    effect.poverty && `${effect.poverty} Nędzy`,
+    effect.poverty && `${minus(effect.poverty)} Nędzy`,
     effect.tracks && `${effect.tracks} tory`,
   ].filter(Boolean).join(", ");
-  return `${cost} → ${eff}${flips ? " (zużywa się)" : ""}`;
+  return `${perm ? perm + "\n" : ""}Uruchom: płacisz ${cost} → ${eff}${flips ? "\nZużywa się: po uruchomieniu gaśnie, dopóki jej nie przykryjesz" : ""}`;
 }
 
-function Card({ d, uid, selected, dim, onClick, small }: { d: CardDef; uid?: number; selected?: boolean; dim?: boolean; onClick?: () => void; small?: boolean }) {
+type Res = "money" | "pp" | "poverty" | "card" | "track";
+/** A number with its resource icon: the same coin, star and patch the stats bar uses. */
+function Ico({ k, n, c }: { k: Res; n: string | number; c?: Color }) {
+  return (
+    <span className={css.res}>
+      {n}
+      {k === "card" ? <i className={css.cardIco} style={c ? { borderColor: `var(--${c})` } : undefined} />
+        : k === "track" ? <i className={css.railIco} />
+        : <i className={`${fx[k]} ${css.ico}`} />}
+    </span>
+  );
+}
+
+/** The card's run as a small equation: what you pay → what you get. */
+function Effect({ d, small }: { d: CardDef; small?: boolean }) {
+  if (d.event) return <span className={css.effNote}>{small ? "strajk 8+ Nędzy" : "Zdarzenie: strajkują rody z 8+ Nędzy"}</span>;
+  const perm = d.permanent && <span className={css.perm}>{small ? `∞ ${PERM[d.permanent][1]}` : <><b>Stale</b> {PERM[d.permanent][0]}</>}</span>;
+  if (!d.run) return perm || (d.color === "nedza" ? <span className={css.effNote}>martwa karta</span> : null);
+  const { pay, effect: e, flips } = d.run;
+  return (
+    <span className={css.effect}>
+      {perm}
+      <span className={css.eq}>
+        {pay.kind === "money" && <Ico k="money" n={pay.n} />}
+        {(pay.kind === "card" || pay.kind === "culture") && <Ico k="card" n={pay.n} c={pay.kind === "culture" ? "kultura" : undefined} />}
+        <span className={css.arrow}>➜</span>
+        {!!e.money && <Ico k="money" n={`+${e.money}`} />}
+        {!!e.pp && <Ico k="pp" n={`+${e.pp}`} />}
+        {!!e.poverty && <Ico k="poverty" n={minus(e.poverty)} />}
+        {!!e.tracks && <Ico k="track" n={`+${e.tracks}`} />}
+        {flips && small && <span className={css.flipMark}>↻</span>}
+      </span>
+      {flips && !small && <span className={css.flips}>↻ zużywa się</span>}
+    </span>
+  );
+}
+
+function Card({ d, uid, selected, dim, onClick, small, planned }: { d: CardDef; uid?: number; selected?: boolean; dim?: boolean; onClick?: () => void; small?: boolean; planned?: boolean }) {
   return (
     <button
       type="button"
       data-uid={uid}
-      className={`${css.card} ${small ? css.small : ""} ${selected ? css.selected : ""} ${dim ? css.dim : ""}`}
+      className={`${css.card} ${small ? css.small : ""} ${selected ? css.selected : ""} ${dim ? css.dim : ""} ${planned ? css.planned : ""}`}
       style={{ "--c": `var(--${d.color})` } as React.CSSProperties}
       onClick={onClick}
       disabled={!onClick}
@@ -58,7 +99,7 @@ function Card({ d, uid, selected, dim, onClick, small }: { d: CardDef; uid?: num
         {d.color !== "nedza" && <span className={css.cost}>{d.cost}</span>}
       </span>
       <span className={css.cardName}>{d.name}</span>
-      {!small && <span className={css.cardText}>{runText(d)}</span>}
+      <span className={css.cardText}><Effect d={d} small={small} /></span>
       <span className={css.cardFoot}>
         <span>{COLOR_NAME[d.color]}</span>
         {d.pp > 0 && <span className={css.pp}>{d.pp} PP</span>}
@@ -141,6 +182,8 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
   // invest
   const [plays, setPlays] = useState<{ card: number; discard?: number; onto?: number }[]>([]);
   const [pick, setPick] = useState<number | null>(null);
+  // the Imperium stack the picked card will cover (it can be chosen before the discard)
+  const [aim, setAim] = useState<number | undefined>();
   // take3
   const [sources, setSources] = useState<("deck" | number)[]>([]);
   // run: stack index -> chosen tracks
@@ -159,6 +202,7 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
     setMode("none");
     setPlays([]);
     setPick(null);
+    setAim(undefined);
     setSources([]);
     setActs({});
     setPays({});
@@ -192,6 +236,12 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
     return c?.kind === "card" || c?.kind === "culture" ? c : null;
   };
   const fitsCost = (i: number, u: number) => runCost(i)?.kind === "card" || def(s, u).color === "kultura";
+  // invest preview: the play a stack click applies to is the picked card, else the last finished play
+  const curPlay = pick != null ? -1 : plays.findLastIndex((p) => !def(s, p.card).event);
+  const hasCur = pick != null || curPlay >= 0;
+  const plannedOn = (i: number) => (pick != null && aim === i ? pick : plays.find((p) => p.onto === i)?.card);
+  const newStacks = [...plays.filter((p) => !def(s, p.card).event && p.onto == null).map((p) => p.card), ...(pick != null && aim == null ? [pick] : [])];
+  const topName = (i: number) => def(s, me.empire[i].cards.at(-1)!).name;
 
   function clickHand(uid: number) {
     if (!s || !myTurn) return;
@@ -208,24 +258,34 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
       if (slot == null) return setError(Object.keys(pays).length ? "Ta karta nie pasuje do żadnej płatności. Najpierw kliknij kartę płatności, by ją zwolnić." : "Ta karta nie jest potrzebna do zapłaty.");
       return setPays({ ...pays, [slot]: [...pays[slot], uid] });
     }
-    if (mode !== "invest" || usedInPlays.has(uid)) return;
+    if (mode !== "invest") return;
+    // clicking a card already used in a play takes that play back
+    if (usedInPlays.has(uid)) return setPlays((p) => p.filter((x) => x.card !== uid && x.discard !== uid));
     const d = def(s, uid);
+    setError("");
     if (pick == null) {
       if (d.event) setPlays((p) => [...p, { card: uid }]);
       else if (d.color !== "nedza") setPick(uid);
       return;
     }
-    if (uid === pick) return setPick(null);
-    if (d.color !== def(s, pick).color) return setError("Odrzucana karta musi mieć ten sam kolor.");
-    setPlays((p) => [...p, { card: pick, discard: uid }]);
+    if (uid === pick) {
+      setAim(undefined);
+      return setPick(null);
+    }
+    if (d.color !== def(s, pick).color) return setError(`Odrzucana karta musi mieć ten sam kolor (${COLOR_NAME[def(s, pick).color]}).`);
+    setPlays((p) => [...p, { card: pick, discard: uid, onto: aim }]);
     setPick(null);
+    setAim(undefined);
   }
 
   function clickStack(i: number) {
     if (!s || !myTurn) return;
-    if (mode === "invest" && plays.length) {
-      // cover a stack with the most recently added play
-      setPlays((p) => p.map((x, k) => (k === p.length - 1 && !def(s, x.card).event ? { ...x, onto: x.onto === i ? undefined : i } : x)));
+    if (mode === "invest") {
+      // a stack already planned for a card goes back to untouched; otherwise the current card goes onto it
+      const taken = plays.findIndex((p) => p.onto === i);
+      if (taken >= 0) return setPlays((p) => p.map((x, k) => (k === taken ? { ...x, onto: undefined } : x)));
+      if (pick != null) return setAim(aim === i ? undefined : i);
+      if (curPlay >= 0) setPlays((p) => p.map((x, k) => (k === curPlay ? { ...x, onto: i } : x)));
       return;
     }
     if (mode !== "run") return;
@@ -273,6 +333,63 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
 
   const ranked = s.scores ? ranking(s, s.scores) : null;
   const live = s.scores ?? score(s);
+  // Nędza every run adds: stacks + hand cards − own districts
+  const growth = (pi: number, hand = s.players[pi].hand.length, stacks = s.players[pi].empire.length) => stacks + hand - ownedCount(s, pi);
+  const ledger = myTurn ? ledgerRows() : [];
+
+  /** The running account of the current move: what it costs, what it brings, and what follows from it. */
+  function ledgerRows(): [string, string, "up" | "down" | undefined][] {
+    const g = growth(seat);
+    const sign = (n: number) => (n > 0 ? `+${n}` : minus(n));
+    if (mode === "invest") {
+      const real = plays.filter((p) => !def(s, p.card).event);
+      if (!real.length) return [];
+      const cost = real.reduce((n, p) => n + def(s, p.card).cost, 0);
+      const pp = real.reduce((n, p) => n + def(s, p.card).pp, 0);
+      const after = growth(seat, me.hand.length - real.length * 2, me.empire.length + real.filter((p) => p.onto == null).length);
+      return [
+        ["Płacisz", `${cost} rb`, "down"],
+        ["Odrzucasz na Giełdę", `${real.length} ${real.length === 1 ? "kartę" : "karty"}`, undefined],
+        ["PP z tych kart na koniec", `+${pp} PP`, "up"],
+        ["Nędza przy każdym Uruchom", `${sign(g)} → ${sign(after)}`, after < g ? "up" : after > g ? "down" : undefined],
+      ];
+    }
+    if (mode === "run") {
+      const keys = Object.keys(acts).map(Number);
+      if (!keys.length) return [["Nędza po uruchomieniu", sign(g), "down"]];
+      let spend = 0, gain = 0, pp = 0, pov = me.poverty, cards = 0;
+      for (const k of keys) {
+        const r = def(s, me.empire[k].cards.at(-1)!).run!;
+        if (r.pay.kind === "money") spend += r.pay.n;
+        if (r.pay.kind === "card" || r.pay.kind === "culture") cards += r.pay.n;
+        gain += r.effect.money ?? 0;
+        pp += r.effect.pp ?? 0;
+        pov = Math.max(0, pov + (r.effect.poverty ?? 0));
+      }
+      const grow = growth(seat, me.hand.length - cards);
+      const end = Math.max(0, pov + grow);
+      return [
+        ["Płacisz", [spend && `${spend} rb`, cards && `${cards} ${cards === 1 ? "kartę" : "karty"} z ręki`].filter(Boolean).join(" + ") || "nic", "down"],
+        ["Dostajesz", [gain && `+${gain} rb`, pp && `+${pp} PP`, pov < me.poverty && `${minus(pov - me.poverty)} Nędzy`].filter(Boolean).join(", ") || "—", "up"],
+        [`Nędza po turze (stosy ${me.empire.length} + ręka ${me.hand.length - cards} − dzielnice ${ownedCount(s, seat)})`, `${me.poverty} → ${end}`, end > me.poverty ? "down" : "up"],
+        ...(end >= STRIKE_AT && !me.strike ? [["Uwaga", `Strajk od ${STRIKE_AT} Nędzy`, "down"] as [string, string, "down"]] : []),
+      ];
+    }
+    if (mode === "buy") {
+      const prices = DISTRICTS.filter((d) => !canBuy(s, seat, d.id)).map((d) => landPrice(s, me, d.id));
+      return [
+        ["Masz", `${me.money} rb`, undefined],
+        ["Ceny wolnych gruntów", prices.length ? `${Math.min(...prices)}–${Math.max(...prices)} rb` : "brak", "down"],
+        ["Każda dzielnica", "−1 Nędzy przy Uruchom", "up"],
+      ];
+    }
+    if (mode === "take3") return [["Nędza przy każdym Uruchom", `${sign(g)} → ${sign(g + Math.max(1, sources.length))}`, "down"]];
+    return [
+      ["Wynik, gdyby gra skończyła się teraz", `${live[seat].total} PP`, undefined],
+      ["Nędza przy każdym Uruchom", sign(g), g > 0 ? "down" : "up"],
+      ...(me.loans ? [["Weksle", `${me.loans} × −7 PP (spłata ${repayCost(s, me)} rb)`, "down"] as [string, string, "down"]] : []),
+    ];
+  }
 
   // the one main move of the moment, shown as the wax seal
   const primary: { label: string; run?: () => void } =
@@ -290,7 +407,7 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
   // on a phone, jump to the panel the current step needs
   const drawing = myTurn && s.phase === "draw";
   useEffect(() => {
-    if (mode === "run") setView("empire");
+    if (mode === "run" || mode === "invest") setView("empire");
     else if (mode === "take3" || drawing) setView("market");
     else if (mode === "buy" || mode === "none") setView("board");
   }, [mode, drawing]);
@@ -307,7 +424,7 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
             <Portrait i={i} />
             <span className={css.who}>
               <span className={css.name}>{p.name}{p.strike && <em className={css.strike}>strajk</em>}</span>
-              <Stats p={p} i={i} total={live[i].total} />
+              <Stats p={p} i={i} sc={live[i]} grow={growth(i)} />
             </span>
           </button>
         ))}
@@ -328,25 +445,33 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
           <Portrait i={seat} big />
           <span className={css.who}>
             <span className={css.name}>{me.name}{me.strike && <em className={css.strike}>strajk</em>}</span>
-            <Stats p={me} i={seat} total={live[seat].total} wide />
+            <Stats p={me} i={seat} sc={live[seat]} grow={growth(seat)} wide />
           </span>
         </div>
         <section className={`${css.plaque} ${css.empire}`} aria-label="Twoje Imperium">
           <h2 className={css.tab}>Twoje Imperium</h2>
-          {me.empire.length === 0 && <p className={css.muted}>Jeszcze nic nie zbudowano. Zainwestuj kartę z ręki.</p>}
+          {me.empire.length === 0 && !newStacks.length && <p className={css.muted}>Jeszcze nic nie zbudowano. Zainwestuj kartę z ręki.</p>}
           <div className={css.stacks}>
             {me.empire.map((st, i) => {
               const d = def(s, st.cards.at(-1)!);
               const blocked = strikeBlocks(me, d, hasPerm(s, me, "noStrike"));
-              const clickable = myTurn && ((mode === "run" && d.run && !st.flipped && !blocked) || (mode === "invest" && plays.length > 0 && st.placedTurn !== s.turnNo));
+              const planned = mode === "invest" ? plannedOn(i) : undefined;
+              const coverable = myTurn && mode === "invest" && st.placedTurn !== s.turnNo;
+              const target = coverable && hasCur && planned == null;
+              const clickable = myTurn && ((mode === "run" && d.run && !st.flipped && !blocked) || (coverable && (hasCur || planned != null)));
               return (
-                <div key={i} className={css.stack}>
-                  <Card d={d} uid={st.cards.at(-1)} small dim={st.flipped} selected={i in acts || plays.at(-1)?.onto === i} onClick={clickable ? () => clickStack(i) : undefined} />
-                  {st.cards.length > 1 && <span className={css.count}>×{st.cards.length}</span>}
+                <div key={i} className={`${css.stack} ${target ? css.target : ""}`} data-label={st.flipped ? "przykryj zużytą" : "przykryj"}>
+                  {planned != null
+                    ? <Card d={def(s, planned)} small planned onClick={() => clickStack(i)} />
+                    : <Card d={d} uid={st.cards.at(-1)} small dim={st.flipped} selected={i in acts} onClick={clickable ? () => clickStack(i) : undefined} />}
+                  {st.cards.length + (planned != null ? 1 : 0) > 1 && <span className={css.count}>×{st.cards.length + (planned != null ? 1 : 0)}</span>}
                   {blocked && <span className={css.blocked}>strajk</span>}
                 </div>
               );
             })}
+            {mode === "invest" && newStacks.map((u) => (
+              <div key={`new${u}`} className={`${css.stack} ${css.ghost}`}><Card d={def(s, u)} small planned /></div>
+            ))}
           </div>
         </section>
         <p className={`${css.plaque} ${css.lastLog}`}>{s.log.at(-1)}</p>
@@ -468,10 +593,10 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
             <h2 className={css.tab}>Akcja</h2>
             {myTurn && s.phase === "action" && mode === "none" ? (
               <div className={css.btns}>
-                <button type="button" className={css.brass} onClick={() => setMode("invest")}>Inwestuj</button>
-                <button type="button" className={css.brass} onClick={() => setMode("buy")}>Kup grunt</button>
-                <button type="button" className={css.brass} onClick={() => setMode("take3")}>Weź 3 karty</button>
-                <button type="button" className={css.brass} onClick={() => setMode("run")} disabled={!me.empire.length}>Uruchom</button>
+                <button type="button" className={css.brass} onClick={() => setMode("invest")} data-tip-title="Inwestuj" data-tip={"Kosztuje: cenę karty (złota moneta w rogu) + drugą kartę tego samego koloru, odrzuconą na Giełdę.\nDaje: kartę w Imperium do uruchamiania i jej PP na koniec gry."}>Inwestuj</button>
+                <button type="button" className={css.brass} onClick={() => setMode("buy")} data-tip-title="Kup grunt" data-tip={"Kosztuje: cenę dzielnicy w rb.\nDaje: karty z talii od razu, PP dzielnicy na koniec i −1 Nędzy przy każdym Uruchom."}>Kup grunt</button>
+                <button type="button" className={css.brass} onClick={() => setMode("take3")} data-tip-title="Weź 3 karty" data-tip={"Kosztuje: nic.\nUwaga: każda karta w ręce to +1 Nędzy przy każdym Uruchom i na koniec gry."}>Weź 3 karty</button>
+                <button type="button" className={css.brass} onClick={() => setMode("run")} disabled={!me.empire.length} data-tip-title="Uruchom" data-tip={`Płacisz to, co na kartach przed strzałką, dostajesz to, co za nią.\nPotem Nędza ${growth(seat) >= 0 ? "+" : ""}${growth(seat)} (stosy + karty w ręce − Twoje dzielnice).`}>Uruchom</button>
               </div>
             ) : myTurn && s.phase === "action" ? (
               <div className={css.btns}>
@@ -496,9 +621,11 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
               : s.phase === "draw" ? "Dobierz kartę z talii albo z Giełdy."
               : s.phase === "discard" ? `Masz za dużo kart. Wybierz w ręce ${me.hand.length - HAND_LIMIT} do odrzucenia.`
               : mode === "none" ? "Wybierz jedną akcję na tę turę."
-              : mode === "invest" ? (pick == null
-                ? "Kliknij kartę w ręce, potem kartę tego samego koloru do odrzucenia. Kliknij swój stos w Imperium, by go przykryć."
-                : `Teraz odrzuć kartę koloru ${COLOR_NAME[def(s, pick).color]}.`)
+              : mode === "invest" ? (pick != null
+                ? `Krok 2: kliknij w ręce drugą kartę koloru ${COLOR_NAME[def(s, pick).color]}, którą odrzucisz na Giełdę. ${aim != null ? `„${def(s, pick).name}” przykryje „${topName(aim)}”.` : me.empire.some((st) => st.placedTurn !== s.turnNo) ? "Chcesz przykryć stos w Imperium (np. zużytą kartę)? Kliknij podświetlony stos, teraz albo po odrzuceniu." : "Karta trafi na nowy stos w Imperium."}`
+                : curPlay >= 0
+                  ? `„${def(s, plays[curPlay].card).name}” ${plays[curPlay].onto != null ? `przykryje „${topName(plays[curPlay].onto!)}”` : "trafi na nowy stos"}. ${me.empire.length ? "Kliknij podświetlony stos w Imperium, by go nią przykryć (ponowne kliknięcie cofa). " : ""}Możesz zainwestować następną kartę albo zatwierdzić pieczęcią.`
+                  : "Krok 1: kliknij w ręce kartę, którą chcesz zainwestować.")
               : mode === "run" ? (trackStack != null
                 ? "Kliknij dzielnice na planie, aby położyć tory."
                 : "Kliknij karty w Imperium, które chcesz uruchomić. Do zapłaty zaznaczam najsłabsze karty z ręki (Nędza pierwsza); kliknij zaznaczoną kartę w ręce, by ją zwolnić, i inną, by zapłacić nią.")
@@ -531,10 +658,15 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
                 <li key={i}>
                   {def(s, p.card).name}
                   {p.discard != null && ` (odrzucasz: ${def(s, p.discard).name})`}
-                  {p.onto != null && ` na stos ${p.onto + 1}`}
+                  {!def(s, p.card).event && (p.onto != null ? ` → przykrywa „${topName(p.onto)}”` : " → nowy stos")}
                 </li>
               ))}
             </ul>
+          )}
+          {ledger.length > 0 && (
+            <dl className={css.ledger} aria-label="Rachunek">
+              {ledger.map(([k, v, tone]) => <div key={k}><dt>{k}</dt><dd className={tone ? css[tone] : undefined}>{v}</dd></div>)}
+            </dl>
           )}
           {error && <p className={css.error} role="alert">{error}</p>}
         </section>
@@ -617,14 +749,19 @@ function Portrait({ i, big }: { i: number; big?: boolean }) {
   return <span className={`${css.portrait} ${big ? css.big : ""}`} style={{ backgroundImage: `url(/ui/portrait-${i % 4}.webp)`, borderColor: PLAYER_COLORS[i] }} />;
 }
 
-function Stats({ p, i, total, wide }: { p: State["players"][number]; i: number; total: number; wide?: boolean }) {
+function Stats({ p, i, sc, grow, wide }: { p: State["players"][number]; i: number; sc: Score; grow: number; wide?: boolean }) {
+  const parts = [
+    ["Karty w Imperium", sc.cards], ["Dzielnice", sc.districts], ["Tory", sc.tracks], ["Żetony PP", sc.tokens],
+    [`Ruble (1 PP za ${MONEY_PER_PP} rb)`, sc.money], ["Weksle", sc.loans], ["Nędza", sc.povertyPenalty],
+  ] as const;
+  const ppTip = parts.filter(([, v]) => v).map(([k, v]) => `${k}: ${v > 0 ? "+" : ""}${minus(v)}`).join("\n") || "Na razie 0 PP.";
   return (
     <span className={`${css.stats} ${wide ? css.wide : ""}`}>
-      <span data-res={`${i}-money`} data-tip="Ruble"><i className={`${fx.money} ${css.ico}`} /><Count v={p.money} />{wide && " rb"}</span>
-      <span data-res={`${i}-pp`} data-tip="Wynik, gdyby gra skończyła się teraz (z karami za Nędzę i weksle)"><i className={`${fx.pp} ${css.ico}`} /><Count v={total} />{wide && " PP"}</span>
-      <span data-res={`${i}-poverty`} data-tip="Nędza"><i className={`${fx.poverty} ${css.ico}`} /><Count v={p.poverty} />{wide && " Nędzy"}</span>
-      {(wide || p.loans > 0) && <span data-res={`${i}-loan`} data-tip="Weksle"><i className={`${fx.loan} ${css.ico}`} /><Count v={p.loans} />{wide && " weksli"}</span>}
-      <span data-tip="Karty na ręce"><i className={css.cardIco} />{p.hand.length}</span>
+      <span data-res={`${i}-money`} data-tip-title={`${p.money} rb`} data-tip={`Na koniec gry 1 PP za każde ${MONEY_PER_PP} rb (teraz ${sc.money} PP${p.money % MONEY_PER_PP ? `, do kolejnego brakuje ${MONEY_PER_PP - (p.money % MONEY_PER_PP)} rb` : ""}).`}><i className={`${fx.money} ${css.ico}`} /><Count v={p.money} />{wide && " rb"}</span>
+      <span data-res={`${i}-pp`} data-tip-title={`Wynik: ${sc.total} PP`} data-tip-meta="gdyby gra skończyła się teraz" data-tip={ppTip}><i className={`${fx.pp} ${css.ico}`} /><Count v={sc.total} />{wide && " PP"}</span>
+      <span data-res={`${i}-poverty`} data-tip-title={`Nędza: ${p.poverty}`} data-tip={`Każde Uruchom: ${grow >= 0 ? "+" : ""}${minus(grow)} (stosy ${p.empire.length} + ręka ${p.hand.length} − dzielnice ${p.empire.length + p.hand.length - grow}).\nOd ${STRIKE_AT} wybucha Strajk.\nNa koniec: Nędza + karty w ręce, porównane z najbiedniejszym rodem; teraz ${sc.povertyPenalty ? `${minus(sc.povertyPenalty)} PP` : "bez kary"}.`}><i className={`${fx.poverty} ${css.ico}`} /><Count v={p.poverty} />{wide && " Nędzy"}</span>
+      {(wide || p.loans > 0) && <span data-res={`${i}-loan`} data-tip-title={`Weksle: ${p.loans}`} data-tip={`Bank pożycza ${LOAN} rb, gdy brakuje rubli. Spłata na początku tury; każdy niespłacony to −7 PP.`}><i className={`${fx.loan} ${css.ico}`} /><Count v={p.loans} />{wide && " weksli"}</span>}
+      <span data-tip-title={`Karty w ręce: ${p.hand.length}/${HAND_LIMIT}`} data-tip="Każda karta w ręce to +1 Nędzy przy każdym Uruchom i na koniec gry."><i className={css.cardIco} />{p.hand.length}</span>
     </span>
   );
 }
@@ -729,7 +866,7 @@ function CardGuide() {
     ["-7%", "10%", "Epoka (I, II, III). Talia idzie od epoki I do III, więc z czasem przychodzą droższe i mocniejsze karty."],
     ["107%", "10%", "Koszt inwestycji w rublach. Płacisz go, gdy wykładasz kartę do Imperium (brakujące ruble pożyczy bank na weksel)."],
     ["107%", "62%", "Nazwa i ilustracja: prawdziwe miejsce lub zjawisko z Łodzi. Najedź na kartę (na telefonie przytrzymaj), by przeczytać jej historię."],
-    ["-7%", "79%", "Działanie przy akcji Uruchom: przed strzałką to, co płacisz (karta z ręki albo ruble), za strzałką to, co dostajesz. „Zużywa się” znaczy, że po użyciu karta gaśnie, dopóki nie przykryjesz jej nową. „Stale” działa bez uruchamiania."],
+    ["-7%", "79%", "Działanie przy akcji Uruchom: przed strzałką to, co płacisz (kartka = karta z ręki, z niebieską ramką karta Kultury; moneta = ruble), za strzałką to, co dostajesz (moneta = ruble, gwiazda = PP, szara łata = Nędza, szyny = tory). „↻ Zużywa się” znaczy, że po użyciu karta gaśnie, dopóki nie przykryjesz jej nową. „Stale” działa bez uruchamiania."],
     ["-7%", "94%", "Kolor. Inwestując, odrzucasz drugą kartę tego samego koloru. Przemysł zarabia, ale stoi podczas Strajku; Władza daje PP i przywileje; Kultura zmniejsza Nędzę; Nędza to martwe karty."],
     ["107%", "94%", "Punkty Prestiżu, które karta da na koniec gry, jeśli leży w Twoim Imperium (także przykryta)."],
   ];
@@ -761,7 +898,42 @@ function Help({ open }: { open?: boolean }) {
       <p><b>Weksle:</b> gdy brakuje rubli, bank daje 10 rb. Spłata 15 rb na początku tury, niespłacony to −7 PP.</p>
       <p><b>Tory</b> (Dworzec, Tramwaj, Kolej) łączą dzielnice od Śródmieścia: +2 PP za Twoją dzielnicę z torem. Miasteczka (Zgierz, Pabianice, Aleksandrów, Stryków) kupisz dopiero, gdy tor dojdzie do sąsiedniej dzielnicy.</p>
       <p><b>Koniec:</b> gdy talia się skończy, każdy ma jeszcze jedną turę. Liczą się PP z kart, dzielnic, torów i żetonów, plus 1 PP za każde 5 rb. Wygrywa najwięcej PP.</p>
+      <Prices />
     </details>
+  );
+}
+
+const LAND = DISTRICTS.map((d) => d.price);
+
+/** Every cost and every source of PP in one ledger, so nothing has to be guessed. */
+function Prices() {
+  const row = (what: React.ReactNode, cost: React.ReactNode) => <tr><th scope="row">{what}</th><td>{cost}</td></tr>;
+  return (
+    <>
+      <p><b>Cennik</b></p>
+      <table className={css.price}>
+        <tbody>
+          {row("Inwestycja", <>koszt karty (moneta w rogu, {Math.min(...CARDS.map((c) => c.cost || 99))}–{Math.max(...CARDS.map((c) => c.cost))} rb) + druga karta tego samego koloru</>)}
+          {row("Grunt", <>{Math.min(...LAND)}–{Math.max(...LAND)} rb (cena w dymku dzielnicy)</>)}
+          {row("Uruchom", <>to, co na karcie przed strzałką; potem Nędza + stosy + karty w ręce − Twoje dzielnice</>)}
+          {row("Weź 3 karty", "za darmo, ale więcej kart w ręce to więcej Nędzy")}
+          {row("Weksel", <>bank daje {LOAN} rb, gdy brakuje; spłata 15 rb (12 z Bankiem Handlowym) na początku tury; niespłacony −7 PP</>)}
+        </tbody>
+      </table>
+      <p><b>Punkty na koniec gry</b></p>
+      <table className={css.price}>
+        <tbody>
+          {row(<>Karty w Imperium</>, "PP z rogu karty, także przykrytej")}
+          {row("Dzielnice", <>PP dzielnicy ({Math.min(...DISTRICTS.map((d) => d.pp))}–{Math.max(...DISTRICTS.map((d) => d.pp))})</>)}
+          {row("Tor w Twojej dzielnicy", "+2 PP")}
+          {row("Żetony PP", "z uruchomionych kart (gwiazda za strzałką)")}
+          {row("Ruble", `+1 PP za każde ${MONEY_PER_PP} rb`)}
+          {row("Niespłacony weksel", "−7 PP")}
+          {row("Nędza", <>Nędza + karty w ręce minus wynik najbiedniejszego rodu: przewaga 1–2 to −{povertyPenalty(1)} PP, 3 to −{povertyPenalty(3)}, 4 to −{povertyPenalty(4)}, 5 to −{povertyPenalty(5)}, każda kolejna −2</>)}
+        </tbody>
+      </table>
+      <p className={css.muted}>Najedź na swoje ruble, PP i Nędzę u góry, by zobaczyć, z czego się składają. Panel „Podpowiedź” liczy na bieżąco, co kosztuje i co da wybrana akcja.</p>
+    </>
   );
 }
 
