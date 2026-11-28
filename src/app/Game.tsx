@@ -146,6 +146,8 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
   // run: stack index -> chosen tracks
   const [acts, setActs] = useState<Record<number, string[]>>({});
   const [trackStack, setTrackStack] = useState<number | null>(null);
+  // run: stack index -> hand cards discarded to pay for it (pre-filled with the weakest, Nędza first)
+  const [pays, setPays] = useState<Record<number, number[]>>({});
   // discard
   const [toDiscard, setToDiscard] = useState<number[]>([]);
   // side panel: an opponent's empire (seat), the log or the rules
@@ -159,6 +161,7 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
     setPick(null);
     setSources([]);
     setActs({});
+    setPays({});
     setTrackStack(null);
     setToDiscard([]);
   };
@@ -183,12 +186,27 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
     });
   });
   const usedInPlays = new Set(plays.flatMap((p) => [p.card, p.discard ?? -1]));
+  const paidCards = new Set(Object.values(pays).flat());
+  const runCost = (i: number) => {
+    const c = def(s, me.empire[i].cards.at(-1)!).run?.pay;
+    return c?.kind === "card" || c?.kind === "culture" ? c : null;
+  };
+  const fitsCost = (i: number, u: number) => runCost(i)?.kind === "card" || def(s, u).color === "kultura";
 
   function clickHand(uid: number) {
     if (!s || !myTurn) return;
     if (s.phase === "discard") {
       setToDiscard((d) => (d.includes(uid) ? d.filter((x) => x !== uid) : [...d, uid]));
       return;
+    }
+    if (mode === "run") {
+      // a chosen payment card goes back to the hand; a free card fills the first unpaid slot it fits
+      const owner = Object.keys(pays).map(Number).find((k) => pays[k].includes(uid));
+      setError("");
+      if (owner != null) return setPays({ ...pays, [owner]: pays[owner].filter((x) => x !== uid) });
+      const slot = Object.keys(pays).map(Number).find((k) => pays[k].length < runCost(k)!.n && fitsCost(k, uid));
+      if (slot == null) return setError(Object.keys(pays).length ? "Ta karta nie pasuje do żadnej płatności. Najpierw kliknij kartę płatności, by ją zwolnić." : "Ta karta nie jest potrzebna do zapłaty.");
+      return setPays({ ...pays, [slot]: [...pays[slot], uid] });
     }
     if (mode !== "invest" || usedInPlays.has(uid)) return;
     const d = def(s, uid);
@@ -221,6 +239,14 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
       return n;
     });
     setTrackStack(d.run.effect.tracks && !(i in acts) ? i : null);
+    const cost = runCost(i);
+    if (i in acts) {
+      const rest = { ...pays };
+      delete rest[i];
+      setPays(rest);
+    } else if (cost) {
+      setPays({ ...pays, [i]: cheapest(s, me.hand, cost.n, (u) => !paidCards.has(u) && fitsCost(i, u)) });
+    }
   }
 
   function clickDistrict(id: string) {
@@ -239,19 +265,9 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
 
   function confirmRun() {
     if (!s) return;
-    let hand = [...me.hand];
-    const list = Object.entries(acts).map(([k, tracks]) => {
-      const stack = Number(k);
-      const d = def(s, me.empire[stack].cards.at(-1)!);
-      const cost = d.run!.pay;
-      let pay: number[] | undefined;
-      if (cost.kind === "card" || cost.kind === "culture") {
-        // shortcut: payment cards are picked automatically (cheapest first), let players choose if testers ask
-        pay = cheapest(s, hand, cost.n, (u) => cost.kind === "card" || def(s, u).color === "kultura");
-        hand = hand.filter((u) => !pay!.includes(u));
-      }
-      return { stack, pay, tracks: tracks.length ? tracks : undefined };
-    });
+    const list = Object.entries(acts).map(([k, tracks]) => ({ stack: Number(k), pay: pays[Number(k)], tracks: tracks.length ? tracks : undefined }));
+    const unpaid = list.find((a) => a.pay && a.pay.length < runCost(a.stack)!.n);
+    if (unpaid) return setError(`Wybierz w ręce kartę do odrzucenia za „${def(s, me.empire[unpaid.stack].cards.at(-1)!).name}”.`);
     act({ t: "run", acts: list });
   }
 
@@ -485,7 +501,7 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
                 : `Teraz odrzuć kartę koloru ${COLOR_NAME[def(s, pick).color]}.`)
               : mode === "run" ? (trackStack != null
                 ? "Kliknij dzielnice na planie, aby położyć tory."
-                : "Kliknij karty w Imperium, które chcesz uruchomić. Karty do zapłaty dobiorę automatycznie.")
+                : "Kliknij karty w Imperium, które chcesz uruchomić. Do zapłaty zaznaczam najsłabsze karty z ręki (Nędza pierwsza); kliknij zaznaczoną kartę w ręce, by ją zwolnić, i inną, by zapłacić nią.")
               : mode === "take3" ? "Wybierz do 3 kart z Giełdy lub talii."
               : `Kliknij podświetloną dzielnicę. Najedź na nią (na telefonie przytrzymaj), by zobaczyć cenę, karty i PP. Masz ${me.money} rb; jeśli grunt jest droższy, bank wypisze weksel (${LOAN} rb, spłata ${repayCost(s, me)} rb, niespłacony −7 PP).`}
           </p>
@@ -498,6 +514,16 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
               }, 0)}
               money={me.money}
             />
+          )}
+          {mode === "run" && Object.keys(pays).length > 0 && (
+            <ul className={css.pending}>
+              {Object.entries(pays).map(([k, paid]) => (
+                <li key={k}>
+                  {def(s, me.empire[Number(k)].cards.at(-1)!).name}: odrzucasz {paid.length ? paid.map((u) => def(s, u).name).join(", ") : "…"}
+                  {paid.length < runCost(Number(k))!.n && ` (wybierz ${runCost(Number(k))!.kind === "culture" ? "kartę Kultury" : "kartę"})`}
+                </li>
+              ))}
+            </ul>
           )}
           {mode === "invest" && plays.length > 0 && (
             <ul className={css.pending}>
@@ -524,8 +550,8 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
             const o = k - (handN - 1) / 2;
             return (
               <div key={u} className={css.slotFan} style={{ "--o": o, "--n": handN } as React.CSSProperties}>
-                <Card d={def(s, u)} uid={u} selected={u === pick || toDiscard.includes(u)} dim={usedInPlays.has(u)}
-                  onClick={myTurn && (mode === "invest" || s.phase === "discard") ? () => clickHand(u) : undefined} />
+                <Card d={def(s, u)} uid={u} selected={u === pick || toDiscard.includes(u) || paidCards.has(u)} dim={usedInPlays.has(u)}
+                  onClick={myTurn && (mode === "invest" || mode === "run" || s.phase === "discard") ? () => clickHand(u) : undefined} />
               </div>
             );
           })}
@@ -729,7 +755,7 @@ function Help({ open }: { open?: boolean }) {
         <li><b>Inwestuj:</b> wyłóż kartę do Imperium. Za każdą odrzucasz kartę tego samego koloru i płacisz koszt w rublach.</li>
         <li><b>Kup grunt:</b> zajmij dzielnicę. Pierwsza musi być startowa (Stare Miasto, Nowe Miasto, Łódka), kolejne sąsiadują z zajętymi. Dostajesz karty i PP na koniec.</li>
         <li><b>Weź 3 karty</b> z talii lub Giełdy.</li>
-        <li><b>Uruchom fabryki:</b> używasz kart z Imperium (ruble, PP, mniej Nędzy, tory). Potem dostajesz Nędzę: stosy + karty w ręce − Twoje dzielnice.</li>
+        <li><b>Uruchom fabryki:</b> używasz kart z Imperium (ruble, PP, mniej Nędzy, tory). Gdy karta każe odrzucić kartę, sam wybierasz którą (dowolną, także kartę Nędzy; „kartę Kultury” tylko Kulturę). Potem dostajesz Nędzę: stosy + karty w ręce − Twoje dzielnice.</li>
       </ul>
       <p><b>Nędza</b> odejmuje PP na koniec. Gdy dojdzie do 15, wybucha <b>Strajk</b>: do końca Twojej następnej tury karty Przemysłu nie pracują (poza tymi, które zmniejszają Nędzę).</p>
       <p><b>Weksle:</b> gdy brakuje rubli, bank daje 10 rb. Spłata 15 rb na początku tury, niespłacony to −7 PP.</p>
