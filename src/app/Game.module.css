@@ -85,7 +85,7 @@
 
 /* --- center: the board, a square as big as the cell allows --- */
 .center { grid-area: center; container-type: size; min-height: 0; display: grid; place-items: center; }
-.boardWrap { position: relative; width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); }
+.boardWrap { position: relative; width: min(100cqw, 100cqh * 1.2); height: min(100cqh, 100cqw / 1.2); }
 .unzoom { position: absolute; top: 8px; right: 8px; z-index: 2; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--gold); background: #2a211cdd; color: var(--paper); }
 
 /* --- right: market, deck, actions, hint, seal --- */
@@ -135,7 +135,7 @@
 .seal:disabled { filter: grayscale(0.85) brightness(0.6) drop-shadow(0 4px 8px #000a); opacity: 1; }
 
 /* --- hand: a fan along the bottom edge; hovering lifts a card to full size --- */
-.hand { grid-area: hand; position: relative; min-width: 0; }
+.hand { grid-area: hand; position: relative; min-width: 0; z-index: 5; }
 .handCount { position: absolute; left: 0; bottom: 4px; z-index: 30; font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); background: #1b130edd; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--gold-dim); }
 .fan { position: absolute; left: 50%; bottom: calc(var(--pad) * -1); width: 0; height: 100%; }
 .slotFan {
@@ -288,25 +288,28 @@
   .slotFan:hover, .slotFan:focus-within, .slotFan:has(.selected):hover { transform: translateX(calc(var(--o) * var(--step))) translateY(calc(206px * var(--s) * -0.9)) rotate(0deg) scale(0.85); }
 }
 
-/* aerial photo of the city under translucent district points */
+/* painted plan; each district is a bordered cell that lights up under the pointer and takes the owner's colour */
 .board { display: block; width: 100%; height: 100%; border-radius: 10px; border: 3px solid var(--gold); background: #2a211c; box-shadow: inset 0 0 0 2px #000, 0 10px 30px #000c; }
-.edge { stroke: #f2e8d5; stroke-opacity: 0.75; stroke-width: 0.35; stroke-dasharray: 1 0.8; filter: drop-shadow(0 0 0.3px #000); }
-.trackBed { stroke: #3b2a1c; stroke-width: 1.5; stroke-dasharray: 0.3 0.7; }
-.trackLine { stroke: #e8c66a; stroke-width: 0.6; stroke-dasharray: 1; animation: draw 0.9s ease-out both; }
-@keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
-.district circle { stroke: #f2e8d5; stroke-width: 0.5; transition: fill 0.3s; }
-.district { outline: none; } /* browser draws a box around the whole <g>; ring below replaces it */
-.district:focus-visible circle { stroke: var(--wladza) !important; stroke-width: 1.2 !important; }
+.district { outline: none; } /* browser draws a box around the whole <g>; the cell outline replaces it */
+.cell { fill: #f2e8d5; fill-opacity: 0.04; stroke: #2b2320; stroke-opacity: 0.55; stroke-width: 0.3; stroke-linejoin: round; transition: fill-opacity 0.2s, stroke 0.2s, stroke-width 0.2s; }
+.district:hover .cell, .district:focus-visible .cell { fill: #fff3c4; fill-opacity: 0.26; stroke: var(--gold); stroke-opacity: 1; stroke-width: 0.6; }
+.cell.owned { fill: var(--c); fill-opacity: 0.36; stroke: var(--c); stroke-opacity: 1; stroke-width: 0.7; }
+.district:hover .cell.owned { fill-opacity: 0.52; }
 .clickable { cursor: pointer; }
-.clickable:hover circle { stroke: #ffd86b; stroke-width: 0.9; }
-.ring { stroke: #ffd86b !important; stroke-width: 0.7 !important; stroke-dasharray: 1.2 0.8; animation: march 1.2s linear infinite; }
+.ring { fill: #ffd86b; fill-opacity: 0.16; stroke: #ffd86b !important; stroke-opacity: 1; stroke-width: 0.7 !important; stroke-dasharray: 1.2 0.8; animation: march 1.2s linear infinite; }
 @keyframes march { to { stroke-dashoffset: -4; } }
-.chosen { stroke: var(--ink) !important; stroke-width: 1.1 !important; }
-.house { fill: var(--paper); stroke: var(--ink); stroke-width: 0.3; transform-box: fill-box; transform-origin: 50% 100%; animation: drop 0.45s cubic-bezier(.3,1.6,.5,1) both; }
-@keyframes drop { from { transform: translateY(-5px) scale(1.6); opacity: 0; } to { transform: none; opacity: 1; } }
-.trackDot { fill: #6e4b16; stroke: var(--paper); stroke-width: 0.3; }
+.chosen { fill: var(--ink); fill-opacity: 0.3; stroke: var(--ink) !important; stroke-opacity: 1; stroke-width: 1.1 !important; }
+.edge { stroke: #f2e8d5; stroke-opacity: 0.85; stroke-width: 0.35; stroke-dasharray: 1 0.8; pointer-events: none; filter: drop-shadow(0 0 0.3px #000); }
+.trackBed { fill: none; stroke: #1d1714; stroke-width: 1.1; stroke-linecap: round; stroke-dasharray: 1; animation: draw 0.9s ease-out both; }
+.trackTies { fill: none; stroke: #f2e8d5; stroke-width: 0.55; stroke-dasharray: 0.35 0.9; }
+@keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.trackDot { fill: #1d1714; stroke: #f2e8d5; stroke-width: 0.3; }
+.rise { transform-box: fill-box; transform-origin: 50% 100%; animation: rise 0.9s cubic-bezier(.2,1.5,.4,1) both; }
+@keyframes rise { 0% { transform: scale(0.2, 0); opacity: 0; } 30% { opacity: 1; } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .rise, .trackBed, .ring { animation: none; } }
+.flag { stroke: #1d1714; stroke-width: 0.25; }
 .label { font-size: 2.2px; fill: #f2e8d5; text-anchor: middle; pointer-events: none; font-family: var(--font-display), Georgia, serif; font-weight: 700; }
-.plate { fill: #1d1714; fill-opacity: 0.62; stroke: var(--gold); stroke-width: 0.15; pointer-events: none; }
+.plate { fill: #1d1714; fill-opacity: 0.82; stroke: var(--gold-dim); stroke-width: 0.15; pointer-events: none; }
 
 /* Card: a share certificate / textile label c. 1900. --c is the deck colour. */
 .card {
