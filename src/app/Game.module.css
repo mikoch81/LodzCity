@@ -153,12 +153,13 @@
   transition: transform 0.18s ease-out; z-index: 1;
 }
 .slotFan > .card { transform-origin: 50% 100%; }
-.slotFan:hover, .slotFan:focus-within {
+.slotFan:hover, .slotFan:has(:focus-visible) {
   z-index: 20;
   transform: translateX(calc(var(--o) * var(--step))) translateY(calc(206px * var(--s) * -0.36)) rotate(0deg) scale(calc(var(--s) * 1.3));
 }
 .slotFan:has(.selected) { transform: translateX(calc(var(--o) * var(--step))) translateY(calc(206px * var(--s) * -0.16)) rotate(calc(var(--o) * var(--tilt))) scale(var(--s)); }
 .slotFan:has(.selected):hover { transform: translateX(calc(var(--o) * var(--step))) translateY(calc(206px * var(--s) * -0.36)) rotate(0deg) scale(calc(var(--s) * 1.3)); }
+.slotFan:hover { z-index: 30; } /* the card under the pointer always wins over raised neighbours */
 .slotFan .card:not(:disabled):hover { transform: none; }
 .slotFan .selected { transform: none; }
 
@@ -263,6 +264,8 @@
   .seal span { font-size: 0.78rem; padding: 2px 6px; }
   /* a tapped card rises to full size above the action row, so its text is readable and the buttons stay free */
   .slotFan:hover, .slotFan:focus-within, .slotFan:has(.selected):hover { transform: translateX(calc(var(--o) * var(--step))) translateY(-225px) rotate(0deg) scale(1); }
+  /* a tap that picks a card for a move keeps it in the fan, so the hint above stays readable (long press still shows the details) */
+  .slotFan:has(.selected, .dim):is(:hover, :focus-within) { z-index: 1; transform: translateX(calc(var(--o) * var(--step))) translateY(calc(206px * var(--s) * -0.16)) rotate(calc(var(--o) * var(--tilt))) scale(var(--s)); }
   .handCount { display: none; }
   /* fan cards sink below the hand row; clip them there so they don't slide under the tabs (lifting up stays visible) */
   .hand { clip-path: inset(-100vh -100vw 0 -100vw); }
@@ -291,6 +294,7 @@
   .seal { width: 58px; }
   .seal span { font-size: 0.72rem; }
   .slotFan:hover, .slotFan:focus-within, .slotFan:has(.selected):hover { transform: translateX(calc(var(--o) * var(--step))) translateY(calc(206px * var(--s) * -0.9)) rotate(0deg) scale(0.85); }
+  .slotFan:has(.selected, .dim):is(:hover, :focus-within) { z-index: 1; transform: translateX(calc(var(--o) * var(--step))) translateY(calc(206px * var(--s) * -0.16)) rotate(calc(var(--o) * var(--tilt))) scale(var(--s)); }
 }
 
 /* painted plan; each district is a bordered cell that lights up under the pointer and takes the owner's colour */
@@ -386,3 +390,54 @@
 }
 /* the start menu's dropdown lists in the table's colours */
 .setup option { background: #1b130e; color: var(--paper); }
+
+/* --- card run as an equation of icons: pay ➜ get --- */
+.effect { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; height: 100%; }
+.eq {
+  display: inline-flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 2px 6px; padding: 2px 8px;
+  font-family: var(--font-display), Georgia, serif; font-weight: 700; font-size: 1rem; line-height: 1.2; color: #3b1a0e; font-variant-numeric: lining-nums;
+  background: linear-gradient(180deg, #fff8e8, #efe0bf); border: 1px solid #c9a24a99; border-radius: 4px; box-shadow: inset 0 0 0 2px #fff8e8;
+}
+.res { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
+.res .ico, .res .cardIco { width: 1em !important; height: 1em !important; }
+.res .cardIco { width: 0.74em !important; }
+.arrow { color: #8a6420; font-size: 0.85em; }
+.flips, .effNote { font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: #7a5a24; }
+.flipMark { color: #7a5a24; font-size: 0.9em; }
+.perm { font-size: 0.72rem; line-height: 1.25; text-align: center; }
+.perm b { display: block; font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; color: #7a5a24; }
+.railIco {
+  display: inline-block; width: 1em; height: 0.8em;
+  background: linear-gradient(#4a3527, #4a3527) 0 15% / 100% 2px no-repeat, linear-gradient(#4a3527, #4a3527) 0 85% / 100% 2px no-repeat,
+    repeating-linear-gradient(90deg, #8a6420 0 2px, #0000 2px 5px);
+}
+.small .cardText { flex: none; }
+.small .eq { font-size: 0.74rem; padding: 1px 4px; gap: 1px 3px; border-radius: 3px; }
+.small .perm, .small .effNote { font-size: 0.6rem; letter-spacing: 0; text-transform: none; }
+
+/* --- investing: planned cards and the stacks they can cover --- */
+.planned { outline: 2px dashed var(--gold); outline-offset: 2px; }
+.stack:has(.planned)::after, .target::after {
+  position: absolute; left: 50%; top: 16%; translate: -50% 0; z-index: 2; pointer-events: none; width: max-content; max-width: 100%; text-align: center;
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 1px 7px; border-radius: 8px;
+}
+.target::after { content: attr(data-label); color: var(--ink); background: linear-gradient(180deg, #f3dc98, #c9a24a); border: 1px solid #8a6420; box-shadow: 0 1px 4px #000a; }
+.stack:has(.planned)::after { content: "nowa"; color: var(--gold); background: var(--ink); border: 1px solid var(--gold); }
+.ghost:has(.planned)::after { content: "nowy stos"; }
+.target > .card { animation: aim 1.3s ease-in-out infinite; }
+@keyframes aim { 50% { box-shadow: inset 0 0 0 2px var(--paper), inset 0 0 0 3px var(--gold), 0 0 0 2px var(--gold), 0 0 16px #f0d27a; } }
+
+/* --- the running account in the hint panel --- */
+.ledger { margin: 8px 0 0; padding-top: 6px; border-top: 1px solid var(--gold-dim); display: flex; flex-direction: column; font-size: 0.95em; }
+.ledger > div { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 2px 0; border-bottom: 1px dashed #c9a24a33; }
+.ledger dt { color: #cdbb9c; }
+.ledger dd { margin: 0; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; color: var(--paper); }
+.up { color: #f0d27a !important; }
+.down { color: #ff9b8a !important; }
+
+/* --- "Jak grać": price list --- */
+.price { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.price th, .price td { text-align: left; vertical-align: top; padding: 3px 6px; border-bottom: 1px dashed #c9a24a44; }
+.price th { color: var(--gold); font-weight: 600; white-space: nowrap; }
+.slots > .card { min-width: 0; }
+.small .eq { max-width: 100%; }
