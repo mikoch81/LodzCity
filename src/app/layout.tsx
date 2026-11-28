@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Inter } from "next/font/google";
 import "./globals.css";
+import { Tip } from "./Tip";
 
 const display = Cormorant_Garamond({ variable: "--font-display", subsets: ["latin", "latin-ext"], weight: ["500", "700"] });
 const body = Inter({ variable: "--font-body", subsets: ["latin", "latin-ext"] });
@@ -18,7 +19,7 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1, view
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="pl">
-      <body className={`${display.variable} ${body.variable}`}>{children}</body>
+      <body className={`${display.variable} ${body.variable}`}>{children}<Tip /></body>
     </html>
   );
 }

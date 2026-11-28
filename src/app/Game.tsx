@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from "react";
 import { botMove, cheapest } from "@/engine/ai";
-import { ADJ, DISTRICTS, DISTRICT_BY_ID, type CardDef, type Color } from "@/engine/data";
+import { ADJ, CARDS, DISTRICTS, DISTRICT_BY_ID, type CardDef, type Color } from "@/engine/data";
 import {
   apply, canBuy, canTrack, def, GameError, HAND_LIMIT, hasPerm, landPrice, LOAN, newGame, ranking, repayCost, score, strikeBlocks,
   type Action, type BotLevel, type State,
@@ -48,7 +48,10 @@ function Card({ d, uid, selected, dim, onClick, small }: { d: CardDef; uid?: num
       style={{ "--c": `var(--${d.color})` } as React.CSSProperties}
       onClick={onClick}
       disabled={!onClick}
-      title={`${d.name}: ${runText(d)}${d.about ? `\n\n${d.about}` : ""}`}
+      data-tip-title={d.name}
+      data-tip-meta={[COLOR_NAME[d.color], `Epoka ${"I".repeat(d.era)}`, d.color !== "nedza" && `koszt ${d.cost} rb`, d.pp > 0 && `${d.pp} PP`].filter(Boolean).join(" · ")}
+      data-tip={runText(d) || undefined}
+      data-tip-note={d.about}
     >
       <span className={css.art} style={ART.has(d.id) ? { backgroundImage: `url(/cards/${d.id}.webp)` } : undefined}>
         <span className={css.era}>{"I".repeat(d.era)}</span>
@@ -283,7 +286,7 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
           <button
             key={i} type="button" className={`${css.plaque} ${css.opp} ${i === s.current ? css.turn : ""}`}
             onClick={() => setDrawer(drawer === i ? null : i)} aria-expanded={drawer === i}
-            title={`Imperium: ${p.name}`}
+            data-tip={`Pokaż Imperium: ${p.name}`}
           >
             <Portrait i={i} />
             <span className={css.who}>
@@ -297,10 +300,10 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
           <small>{s.finalTurns !== null ? "ostatnia kolejka!" : `talia: ${s.deck.length}`}</small>
         </div>
         <nav className={`${css.plaque} ${css.tools}`} aria-label="Menu">
-          <button type="button" className={css.knob} onClick={() => setDrawer(drawer === "log" ? null : "log")} aria-expanded={drawer === "log"} title="Kronika">K</button>
-          <button type="button" className={css.knob} onClick={() => setDrawer(drawer === "help" ? null : "help")} aria-expanded={drawer === "help"} title="Jak grać">?</button>
-          <button type="button" className={css.knob} onClick={() => setAnim(!anim)} aria-pressed={anim} title={`Animacje: ${anim ? "wł." : "wył."}`}>{anim ? "A" : "a"}</button>
-          <button type="button" className={css.knob} onClick={() => setSoundOn(!sound)} aria-pressed={sound} title={`Dźwięk: ${sound ? "wł." : "wył."}`}>{sound ? "♪" : "–"}</button>
+          <button type="button" className={css.knob} onClick={() => setDrawer(drawer === "log" ? null : "log")} aria-expanded={drawer === "log"} aria-label="Kronika" data-tip="Kronika">K</button>
+          <button type="button" className={css.knob} onClick={() => setDrawer(drawer === "help" ? null : "help")} aria-expanded={drawer === "help"} aria-label="Jak grać" data-tip="Jak grać">?</button>
+          <button type="button" className={css.knob} onClick={() => setAnim(!anim)} aria-pressed={anim} aria-label="Animacje" data-tip={`Animacje: ${anim ? "wł." : "wył."}`}>{anim ? "A" : "a"}</button>
+          <button type="button" className={css.knob} onClick={() => setSoundOn(!sound)} aria-pressed={sound} aria-label="Dźwięk" data-tip={`Dźwięk: ${sound ? "wł." : "wył."}`}>{sound ? "♪" : "–"}</button>
         </nav>
       </header>
 
@@ -350,6 +353,10 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
               <g
                 key={d.id}
                 data-district={d.id}
+                data-tip-title={d.name}
+                data-tip-meta={owner != null ? `Grunt: ${s.players[owner].name}` : d.start ? "Wolny grunt · startowy" : "Wolny grunt"}
+                data-tip={`Cena ${landPrice(s, me, d.id)} rb · ${d.cards} ${d.cards === 1 ? "karta" : "karty"} · ${d.pp} PP${d.town ? "\nMiasteczko: kupisz, gdy tor dojdzie do sąsiedniej dzielnicy." : ""}`}
+                aria-label={d.name}
                 className={`${css.district} ${buyable || trackable ? css.clickable : ""}`}
                 style={owner != null ? ({ "--c": PLAYER_COLORS[owner] } as CSSProperties) : undefined}
                 onClick={() => (buyable || trackable || chosen) && clickDistrict(d.id)}
@@ -357,7 +364,6 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
                 tabIndex={buyable || trackable ? 0 : undefined}
                 onKeyDown={(e) => e.key === "Enter" && clickDistrict(d.id)}
               >
-                <title>{`${d.name}: ${landPrice(s, me, d.id)} rb, ${d.cards} karty, ${d.pp} PP${d.town ? " (miasteczko, wymaga toru)" : ""}`}</title>
                 <polygon
                   points={CELLS[d.id].poly}
                   className={`${css.cell} ${owner != null ? css.owned : ""} ${chosen ? css.chosen : buyable || trackable ? css.ring : ""}`}
@@ -437,7 +443,7 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
             type="button" className={css.deck} data-bank
             disabled={!myTurn || !s.deck.length || !(s.phase === "draw" || (mode === "take3" && sources.length < 3 && sources.filter((x) => x === "deck").length < s.deck.length))}
             onClick={() => (s.phase === "draw" ? act({ t: "draw", from: "deck" }) : setSources([...sources, "deck"]))}
-            title="Talia"
+            aria-label="Talia" data-tip={`Talia: ${s.deck.length} kart`}
           >
             <span>{s.deck.length}</span>
             {sources.filter((x) => x === "deck").length > 0 && <small>wybrano {sources.filter((x) => x === "deck").length}</small>}
@@ -481,7 +487,7 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
                 ? "Kliknij dzielnice na planie, aby położyć tory."
                 : "Kliknij karty w Imperium, które chcesz uruchomić. Karty do zapłaty dobiorę automatycznie.")
               : mode === "take3" ? "Wybierz do 3 kart z Giełdy lub talii."
-              : `Kliknij podświetloną dzielnicę. Najedź na nią, by zobaczyć cenę, karty i PP. Masz ${me.money} rb; jeśli grunt jest droższy, bank wypisze weksel (${LOAN} rb, spłata ${repayCost(s, me)} rb, niespłacony −7 PP).`}
+              : `Kliknij podświetloną dzielnicę. Najedź na nią (na telefonie przytrzymaj), by zobaczyć cenę, karty i PP. Masz ${me.money} rb; jeśli grunt jest droższy, bank wypisze weksel (${LOAN} rb, spłata ${repayCost(s, me)} rb, niespłacony −7 PP).`}
           </p>
           {mode === "invest" && plays.length > 0 && <LoanWarning cost={plays.reduce((n, p) => n + def(s, p.card).cost, 0)} money={me.money} />}
           {mode === "run" && Object.keys(acts).length > 0 && (
@@ -540,7 +546,7 @@ export function Board({ s, seat, onAction, onExit }: BoardProps) {
               <h2>Kronika</h2>
               <ol className={css.log}>{s.log.slice(-30).reverse().map((l, i) => <li key={i}>{l}</li>)}</ol>
             </>
-          ) : drawer === "help" ? <Help /> : (
+          ) : drawer === "help" ? <Help open /> : (
             <>
               <h2>Imperium: {s.players[drawer].name}</h2>
               {s.players[drawer].empire.length === 0 && <p className={css.muted}>Jeszcze nic nie zbudowano.</p>}
@@ -588,11 +594,11 @@ function Portrait({ i, big }: { i: number; big?: boolean }) {
 function Stats({ p, i, total, wide }: { p: State["players"][number]; i: number; total: number; wide?: boolean }) {
   return (
     <span className={`${css.stats} ${wide ? css.wide : ""}`}>
-      <span data-res={`${i}-money`} title="Ruble"><i className={`${fx.money} ${css.ico}`} /><Count v={p.money} />{wide && " rb"}</span>
-      <span data-res={`${i}-pp`} title="Wynik, gdyby gra skończyła się teraz (z karami za Nędzę i weksle)"><i className={`${fx.pp} ${css.ico}`} /><Count v={total} />{wide && " PP"}</span>
-      <span data-res={`${i}-poverty`} title="Nędza"><i className={`${fx.poverty} ${css.ico}`} /><Count v={p.poverty} />{wide && " Nędzy"}</span>
-      {(wide || p.loans > 0) && <span data-res={`${i}-loan`} title="Weksle"><i className={`${fx.loan} ${css.ico}`} /><Count v={p.loans} />{wide && " weksli"}</span>}
-      <span title="Karty na ręce"><i className={css.cardIco} />{p.hand.length}</span>
+      <span data-res={`${i}-money`} data-tip="Ruble"><i className={`${fx.money} ${css.ico}`} /><Count v={p.money} />{wide && " rb"}</span>
+      <span data-res={`${i}-pp`} data-tip="Wynik, gdyby gra skończyła się teraz (z karami za Nędzę i weksle)"><i className={`${fx.pp} ${css.ico}`} /><Count v={total} />{wide && " PP"}</span>
+      <span data-res={`${i}-poverty`} data-tip="Nędza"><i className={`${fx.poverty} ${css.ico}`} /><Count v={p.poverty} />{wide && " Nędzy"}</span>
+      {(wide || p.loans > 0) && <span data-res={`${i}-loan`} data-tip="Weksle"><i className={`${fx.loan} ${css.ico}`} /><Count v={p.loans} />{wide && " weksli"}</span>}
+      <span data-tip="Karty na ręce"><i className={css.cardIco} />{p.hand.length}</span>
     </span>
   );
 }
@@ -688,10 +694,36 @@ function Setup({ onStart }: { onStart: (p: { name: string; bot?: BotLevel }[]) =
   );
 }
 
-function Help() {
+const SAMPLE = CARDS.find((c) => c.id === "geyer")!;
+
+/** A real card with numbered pins, and what each part means in play. */
+function CardGuide() {
+  const pins: [string, string, string][] = [
+    // [left, top] of the pin, just outside the card edge next to the part it explains, then the explanation
+    ["-7%", "10%", "Epoka (I, II, III). Talia idzie od epoki I do III, więc z czasem przychodzą droższe i mocniejsze karty."],
+    ["107%", "10%", "Koszt inwestycji w rublach. Płacisz go, gdy wykładasz kartę do Imperium (brakujące ruble pożyczy bank na weksel)."],
+    ["107%", "62%", "Nazwa i ilustracja: prawdziwe miejsce lub zjawisko z Łodzi. Najedź na kartę (na telefonie przytrzymaj), by przeczytać jej historię."],
+    ["-7%", "79%", "Działanie przy akcji Uruchom: przed strzałką to, co płacisz (karta z ręki albo ruble), za strzałką to, co dostajesz. „Zużywa się” znaczy, że po użyciu karta gaśnie, dopóki nie przykryjesz jej nową. „Stale” działa bez uruchamiania."],
+    ["-7%", "94%", "Kolor. Inwestując, odrzucasz drugą kartę tego samego koloru. Przemysł zarabia, ale stoi podczas Strajku; Władza daje PP i przywileje; Kultura zmniejsza Nędzę; Nędza to martwe karty."],
+    ["107%", "94%", "Punkty Prestiżu, które karta da na koniec gry, jeśli leży w Twoim Imperium (także przykryta)."],
+  ];
   return (
-    <details className={css.help}>
+    <div className={css.guide}>
+      <div className={css.guideCard} aria-hidden>
+        <Card d={SAMPLE} />
+        {pins.map(([x, y], i) => <span key={i} className={css.pin} style={{ left: x, top: y }}>{i + 1}</span>)}
+      </div>
+      <ol className={css.guideList}>{pins.map(([, , t], i) => <li key={i}>{t}</li>)}</ol>
+    </div>
+  );
+}
+
+function Help({ open }: { open?: boolean }) {
+  return (
+    <details className={css.help} open={open}>
       <summary>Jak grać</summary>
+      <p><b>Karta</b> (przykład: {SAMPLE.name}):</p>
+      <CardGuide />
       <p><b>Tura:</b> dobierz 1 kartę (talia lub Giełda), potem wykonaj jedną akcję.</p>
       <ul>
         <li><b>Inwestuj:</b> wyłóż kartę do Imperium. Za każdą odrzucasz kartę tego samego koloru i płacisz koszt w rublach.</li>

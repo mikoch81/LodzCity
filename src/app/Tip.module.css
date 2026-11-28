@@ -1,0 +1,34 @@
+/* a slip of aged paper pinned with brass, like a note tucked into the factory owner's ledger */
+.tip {
+  position: fixed; z-index: 100; pointer-events: none;
+  width: max-content; max-width: min(320px, calc(100vw / var(--z) - 16px));
+  display: flex; flex-direction: column; gap: 4px; padding: 10px 14px 11px;
+  color: var(--ink); font-size: 0.84rem; line-height: 1.4; text-align: left;
+  background:
+    radial-gradient(circle at 7px 7px, #f6dc8f 0 1.6px, #8a6420 2.4px, #0000 3px),
+    radial-gradient(circle at calc(100% - 7px) 7px, #f6dc8f 0 1.6px, #8a6420 2.4px, #0000 3px),
+    radial-gradient(ellipse at 25% 15%, #fbf4e4, var(--paper) 55%, #e2d0ab);
+  border: 1px solid var(--gold-dim); border-radius: 4px;
+  box-shadow: inset 0 0 0 3px #f2e8d5, inset 0 0 0 4px #c9a24a99, inset 0 0 18px #8a642033, 0 8px 22px #000c, 0 2px 4px #0009;
+  animation: tipIn 0.14s ease-out;
+}
+/* little paper tongue pointing at the element */
+.tip::after {
+  content: ""; position: absolute; left: var(--ax, 50%); top: 100%; width: 12px; height: 12px; translate: -50% -6px; rotate: 45deg;
+  background: #e8d9b8; border: 1px solid var(--gold-dim); border-top: none; border-left: none;
+}
+.below::after { top: auto; bottom: 100%; translate: -50% 6px; border: 1px solid var(--gold-dim); border-bottom: none; border-right: none; background: #f8efdc; }
+@keyframes tipIn { from { opacity: 0; transform: translateY(4px); } }
+.below { animation-name: tipInBelow; }
+@keyframes tipInBelow { from { opacity: 0; transform: translateY(-4px); } }
+
+.title { font-family: var(--font-display), Georgia, serif; font-weight: 700; font-size: 1.15rem; line-height: 1.1; color: #3b1a0e; padding: 0 6px; }
+.meta { font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: #7a5a24; padding: 0 6px; }
+.body { white-space: pre-line; padding: 0 6px; }
+.title + .body, .meta + .body { font-weight: 600; }
+/* the history note: an engraved rule, then an italic chronicle entry */
+.note {
+  position: relative; margin-top: 4px; padding: 10px 6px 0; font-family: var(--font-display), Georgia, serif; font-style: italic; font-size: 0.98rem; line-height: 1.3; color: #4a3527;
+  background: radial-gradient(circle, var(--gold) 0 2px, #0000 2.5px) top center / 8px 8px no-repeat, linear-gradient(90deg, #0000, var(--gold) 20%, var(--gold) 80%, #0000) top 3.5px center / 100% 1px no-repeat;
+}
+.note::before { content: "Z kronik miasta · "; font-style: normal; font-family: var(--font-body), sans-serif; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: #7a5a24; }
